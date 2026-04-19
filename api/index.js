@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -15,13 +14,13 @@ app.use(express.urlencoded({ extended: true }));
 const TELEGRAM_BOT_TOKEN = '8622926718:AAFgjPx774euFGn3NFdekbMfF9NyJgBNUWs';
 const TELEGRAM_CHAT_ID = '-5260518165';
 
-// ========== SIMPAN MAPPING FILE DI MEMORY ==========
+// ========== SIMPAN FILE DI MEMORY ==========
 const fileStore = new Map();
 
-// ========== HELPER ESCAPE HTML ==========
+// ========== HELPER ==========
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
+  return str.replace(/[&<>]/g, (m) => {
     if (m === '&') return '&amp;';
     if (m === '<') return '&lt;';
     if (m === '>') return '&gt;';
@@ -29,11 +28,9 @@ function escapeHtml(str) {
   });
 }
 
-// ========== CEK TIPE FILE ==========
 function getFileType(filename) {
   const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
-  
-  const imageExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'];
+  const imageExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
   const videoExt = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
   const audioExt = ['.mp3', '.wav', '.ogg', '.m4a', '.flac'];
   const pdfExt = ['.pdf'];
@@ -47,44 +44,11 @@ function getFileType(filename) {
   return 'other';
 }
 
-// ========== AMBIL ISI FILE TEKS ==========
-async function getTextContent(telegramUrl) {
-  try {
-    const response = await fetch(telegramUrl);
-    if (!response.ok) return null;
-    const text = await response.text();
-    if (text.length > 50000) {
-      return text.substring(0, 50000) + '\n\n... (file terlalu besar, hanya 50.000 karakter pertama yang ditampilkan)';
-    }
-    return text;
-  } catch (error) {
-    console.error('Gagal ambil isi file teks:', error);
-    return null;
-  }
-}
-
-// ========== AMBIL BASE64 UNTUK GAMBAR ==========
-async function getImageBase64(telegramUrl) {
-  try {
-    const response = await fetch(telegramUrl);
-    if (!response.ok) return null;
-    const buffer = await response.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error('Gagal ambil gambar:', error);
-    return null;
-  }
-}
-
-// ========== ENDPOINT UPLOAD DARI WEB ==========
+// ========== UPLOAD DARI WEB ==========
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-  console.log('Upload dari web');
-  
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'No file' });
     }
 
     const formData = new FormData();
@@ -97,19 +61,16 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     });
 
     const result = await response.json();
-
     if (!result.ok) {
-      return res.status(400).json({ error: 'Telegram API error: ' + result.description });
+      return res.status(400).json({ error: result.description });
     }
 
     const fileId = result.result.document.file_id;
-    
     const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
     const fileData = await fileInfo.json();
     const telegramUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
     
     const randomId = crypto.randomBytes(8).toString('hex');
-    
     fileStore.set(randomId, {
       telegramUrl: telegramUrl,
       name: req.file.originalname,
@@ -119,126 +80,59 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     });
     
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    res.json({
-      success: true,
-      url: `${baseUrl}/f/${randomId}`,
-      id: randomId,
-      name: req.file.originalname
-    });
+    res.json({ success: true, url: `${baseUrl}/f/${randomId}`, id: randomId });
     
   } catch (error) {
-    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ========== WEBHOOK TELEGRAM (DIPERBAIKI) ==========
-// Handle OPTIONS request (buat CORS preflight)
-app.options(`/bot${TELEGRAM_BOT_TOKEN}`, (req, res) => {
-  res.sendStatus(200);
-});
-
-// Handle POST request dari Telegram
-app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
-  // WAJIB: Kirim response 200 OK dulu, apapun yang terjadi
-  res.sendStatus(200);
-  
-  console.log('Webhook Telegram dipanggil');
-  
-  try {
-    const message = req.body.message;
-    if (!message) {
-      console.log('Tidak ada message dalam payload');
-      return;
-    }
-    
-    const chatId = message.chat.id;
-    const text = message.text || '';
-    
-    console.log(`Pesan dari chat ${chatId}: ${text}`);
-    
-    if (text === '/start') {
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: 'Kirim file (gambar, video, dokumen) ke bot ini, nanti akan saya kasih link download.'
-        })
-      });
-      return;
-    }
-    
-    // Kalo user kirim file/document
-    if (message.document || message.video || message.photo || message.audio) {
-      let fileId = null;
-      let fileName = 'file';
-      let mimeType = 'application/octet-stream';
-      
-      if (message.document) {
-        fileId = message.document.file_id;
-        fileName = message.document.file_name || 'document';
-        mimeType = message.document.mime_type || 'application/octet-stream';
-      } else if (message.video) {
-        fileId = message.video.file_id;
-// ========== WEBHOOK TELEGRAM (PAKAI PATH SEDERHANA) ==========
+// ========== WEBHOOK TELEGRAM ==========
 app.post('/webhook', async (req, res) => {
-  // WAJIB: Langsung kirim response 200 OK
-  res.sendStatus(200);
-  
-  console.log('Webhook Telegram dipanggil');
+  // RESPONSE 200 DULU, PALING PENTING!
+  res.status(200).end();
   
   try {
     const message = req.body.message;
-    if (!message) {
-      console.log('Tidak ada message');
-      return;
-    }
+    if (!message) return;
     
     const chatId = message.chat.id;
-    const text = message.text || '';
     
-    console.log(`Dari chat ${chatId}: ${text}`);
-    
-    if (text === '/start') {
+    if (message.text === '/start') {
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: 'Kirim file (gambar, video, dokumen) ke bot ini, nanti akan saya kasih link download.'
+          text: 'Kirim file apa aja (gambar, video, dokumen, zip, apk) ke bot ini, nanti saya kasih link download.'
         })
       });
       return;
     }
     
-    // Handle file (document, video, photo, audio)
-    if (message.document || message.video || message.photo || message.audio) {
-      let fileId = null;
-      let fileName = 'file';
-      let mimeType = 'application/octet-stream';
-      
-      if (message.document) {
-        fileId = message.document.file_id;
-        fileName = message.document.file_name || 'document';
-        mimeType = message.document.mime_type || 'application/octet-stream';
-      } else if (message.video) {
-        fileId = message.video.file_id;
-        fileName = message.video.file_name || 'video.mp4';
-        mimeType = message.video.mime_type || 'video/mp4';
-      } else if (message.photo) {
-        fileId = message.photo[message.photo.length - 1].file_id;
-        fileName = 'photo.jpg';
-        mimeType = 'image/jpeg';
-      } else if (message.audio) {
-        fileId = message.audio.file_id;
-        fileName = message.audio.file_name || 'audio.mp3';
-        mimeType = message.audio.mime_type || 'audio/mpeg';
-      }
-      
-      console.log(`Menerima file: ${fileName}`);
-      
-      // Dapatkan URL file dari Telegram
+    let fileId = null;
+    let fileName = 'file';
+    let mimeType = 'application/octet-stream';
+    
+    if (message.document) {
+      fileId = message.document.file_id;
+      fileName = message.document.file_name || 'document';
+      mimeType = message.document.mime_type || 'application/octet-stream';
+    } else if (message.video) {
+      fileId = message.video.file_id;
+      fileName = message.video.file_name || 'video.mp4';
+      mimeType = message.video.mime_type || 'video/mp4';
+    } else if (message.photo) {
+      fileId = message.photo[message.photo.length - 1].file_id;
+      fileName = 'photo.jpg';
+      mimeType = 'image/jpeg';
+    } else if (message.audio) {
+      fileId = message.audio.file_id;
+      fileName = message.audio.file_name || 'audio.mp3';
+      mimeType = message.audio.mime_type || 'audio/mpeg';
+    }
+    
+    if (fileId) {
       const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
       const fileData = await fileInfo.json();
       const telegramUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
@@ -267,161 +161,89 @@ app.post('/webhook', async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: `✅ File berhasil diupload!\n\n🔗 Link: ${shortUrl}\n\n📄 Nama: ${fileName}\n📦 Ukuran: ${(fileSize/1024).toFixed(2)} KB`
+          text: `✅ Upload berhasil!\n\n🔗 Link: ${shortUrl}\n\n📄 Nama: ${fileName}\n📦 Ukuran: ${(fileSize/1024).toFixed(2)} KB`
         })
       });
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Webhook error:', error);
   }
 });
 
-// ========== ENDPOINT WEB VIEW (PREVIEW TANPA VIDEO) ==========
+// ========== WEB VIEW (PREVIEW SEMUA FILE) ==========
 app.get('/f/:id', async (req, res) => {
-  const id = req.params.id;
-  console.log(`Looking for file ID: ${id}`);
-  
-  const file = fileStore.get(id);
-  
+  const file = fileStore.get(req.params.id);
   if (!file) {
     return res.status(404).send(`
       <!DOCTYPE html>
-      <html>
-      <head>
-        <title>File Not Found</title>
-        <style>
-          body { font-family: system-ui; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-          .card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; }
-          a { color: #60a5fa; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>File Tidak Ditemukan</h1>
-          <p>ID: <code>${escapeHtml(id)}</code></p>
-          <a href="/">Kembali</a>
-        </div>
-      </body>
+      <html><head><title>Not Found</title></head>
+      <body><h1>File tidak ditemukan</h1><a href="/">Kembali</a></body>
       </html>
     `);
   }
   
   const fileType = getFileType(file.name);
-  
   let previewHtml = '';
   
-  if (fileType === 'text') {
-    const content = await getTextContent(file.telegramUrl);
-    if (content) {
-      previewHtml = `<pre>${escapeHtml(content)}</pre>`;
-    }
-  } else if (fileType === 'image') {
-    const base64 = await getImageBase64(file.telegramUrl);
-    if (base64) {
-      previewHtml = `<img src="${base64}" alt="preview">`;
-    }
-  } else if (fileType === 'audio') {
-    previewHtml = `<audio controls src="${file.telegramUrl}"></audio>`;
-  } else if (fileType === 'pdf') {
-    previewHtml = `<iframe src="${file.telegramUrl}"></iframe>`;
+  if (fileType === 'image') {
+    previewHtml = `<img src="${file.telegramUrl}" style="max-width:100%; max-height:60vh;">`;
   } else if (fileType === 'video') {
-    previewHtml = `<div style="color:#64748b; text-align:center;"><i class="fas fa-film" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview video tidak tersedia. Silakan download untuk melihat.</div>`;
+    previewHtml = `<video controls src="${file.telegramUrl}" style="max-width:100%; max-height:60vh;"></video>`;
+  } else if (fileType === 'audio') {
+    previewHtml = `<audio controls src="${file.telegramUrl}" style="width:100%;"></audio>`;
+  } else if (fileType === 'pdf') {
+    previewHtml = `<iframe src="${file.telegramUrl}" style="width:100%; height:70vh;"></iframe>`;
+  } else if (fileType === 'text') {
+    try {
+      const response = await fetch(file.telegramUrl);
+      const text = await response.text();
+      previewHtml = `<pre style="background:#1e293b; padding:15px; border-radius:12px; overflow:auto; max-height:60vh;">${escapeHtml(text.substring(0, 50000))}</pre>`;
+    } catch (e) {
+      previewHtml = `<p>Preview tidak tersedia</p>`;
+    }
   } else {
-    previewHtml = `<div style="color:#64748b; text-align:center;"><i class="fas fa-file" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview tidak tersedia untuk file ini</div>`;
+    previewHtml = `<p>Preview tidak tersedia untuk file ini. <a href="${file.telegramUrl}" download>Download</a> untuk melihat.</p>`;
   }
-  
-  let fileIcon = 'fa-file';
-  if (fileType === 'image') fileIcon = 'fa-image';
-  else if (fileType === 'video') fileIcon = 'fa-film';
-  else if (fileType === 'audio') fileIcon = 'fa-music';
-  else if (fileType === 'pdf') fileIcon = 'fa-file-pdf';
-  else if (fileType === 'text') fileIcon = 'fa-file-code';
   
   res.send(`
     <!DOCTYPE html>
-    <html lang="id">
+    <html>
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${escapeHtml(file.name)} - FileShare</title>
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+      <title>${escapeHtml(file.name)}</title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
           background: linear-gradient(135deg, #0f172a, #1e1b4b);
-          font-family: system-ui, -apple-system, sans-serif;
+          font-family: system-ui;
           color: white;
           min-height: 100vh;
           padding: 20px;
         }
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1000px; margin: 0 auto; }
         .header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 12px 20px;
           background: rgba(15,23,42,0.8);
-          backdrop-filter: blur(10px);
+          padding: 12px 20px;
           border-radius: 16px;
           margin-bottom: 20px;
-          border: 1px solid rgba(255,255,255,0.1);
         }
-        .file-info {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 0.9rem;
-          color: #e2e8f0;
-          word-break: break-all;
-        }
-        .file-info i { color: #60a5fa; font-size: 1rem; }
         .download-btn {
           background: #3b82f6;
-          border: none;
           padding: 8px 16px;
           border-radius: 10px;
           color: white;
-          font-weight: 500;
-          cursor: pointer;
           text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 0.8rem;
-          transition: 0.2s;
         }
-        .download-btn:hover { background: #2563eb; }
-        .preview-container {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 60vh;
+        .preview {
           background: rgba(0,0,0,0.3);
           border-radius: 20px;
           padding: 30px;
+          text-align: center;
         }
-        .preview-content { max-width: 100%; text-align: center; }
-        pre {
-          background: #020617;
-          padding: 20px;
-          border-radius: 16px;
-          font-family: monospace;
-          font-size: 0.75rem;
-          overflow-x: auto;
-          white-space: pre-wrap;
-          word-break: break-all;
-          color: #e2e8f0;
-          max-height: 500px;
-          overflow-y: auto;
-          text-align: left;
-          max-width: 100%;
-        }
-        img, audio, iframe {
-          max-width: 100%;
-          max-height: 70vh;
-          border-radius: 12px;
-        }
-        iframe { width: 100%; height: 70vh; border: none; }
         .meta {
           text-align: center;
           color: #64748b;
@@ -433,24 +255,14 @@ app.get('/f/:id', async (req, res) => {
     <body>
       <div class="container">
         <div class="header">
-          <div class="file-info">
-            <i class="fas ${fileIcon}"></i>
-            <span>${escapeHtml(file.name)}</span>
-            <span style="font-size:0.7rem; color:#64748b;">${(file.size / 1024).toFixed(2)} KB</span>
-          </div>
-          <a href="${file.telegramUrl}" class="download-btn" download>
-            <i class="fas fa-download"></i> Download
-          </a>
+          <span>📄 ${escapeHtml(file.name)} (${(file.size/1024).toFixed(2)} KB)</span>
+          <a href="${file.telegramUrl}" class="download-btn" download>⬇️ Download</a>
         </div>
-        
-        <div class="preview-container">
-          <div class="preview-content">
-            ${previewHtml}
-          </div>
+        <div class="preview">
+          ${previewHtml}
         </div>
-        
         <div class="meta">
-          <i class="far fa-clock"></i> ${new Date(file.uploadedAt).toLocaleString('id-ID')}
+          Diupload: ${new Date(file.uploadedAt).toLocaleString('id-ID')}
         </div>
       </div>
     </body>
@@ -458,7 +270,7 @@ app.get('/f/:id', async (req, res) => {
   `);
 });
 
-// ========== ENDPOINT LIST FILE ==========
+// ========== LIST FILE ==========
 app.get('/api/files', (req, res) => {
   const files = Array.from(fileStore.entries()).map(([id, file]) => ({
     id: id,
@@ -469,10 +281,9 @@ app.get('/api/files', (req, res) => {
   res.json(files);
 });
 
-// ========== ENDPOINT DELETE FILE ==========
+// ========== DELETE FILE ==========
 app.delete('/api/file/:id', (req, res) => {
-  const id = req.params.id;
-  const deleted = fileStore.delete(id);
+  const deleted = fileStore.delete(req.params.id);
   res.json({ success: deleted });
 });
 
@@ -481,18 +292,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', files: fileStore.size });
 });
 
-// ========== SETUP WEBHOOK TELEGRAM ==========
+// ========== SETUP WEBHOOK ==========
 app.get('/api/setwebhook', async (req, res) => {
   const baseUrl = `https://${req.get('host')}`;
-  const webhookUrl = `${baseUrl}/bot${TELEGRAM_BOT_TOKEN}`;
-  
-  // Hapus webhook lama dulu
   await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`);
-  
-  // Set webhook baru
-  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${webhookUrl}`);
+  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${baseUrl}/webhook`);
   const result = await response.json();
-  
   res.json(result);
 });
 
