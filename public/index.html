@@ -3,302 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WiFi Tools - Scanner & File Transfer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Upload ke Telegram</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-            font-family: 'Inter', sans-serif;
-            color: #f1f5f9;
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: white;
             min-height: 100vh;
-            padding: 1.5rem;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .header h1 {
-            font-size: 1.8rem;
-            background: linear-gradient(135deg, #60a5fa, #c084fc);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-        @media (max-width: 768px) {
-            .grid { grid-template-columns: 1fr; }
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
         .card {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            border-radius: 1.2rem;
-            border: 1px solid rgba(255,255,255,0.05);
-            overflow: hidden;
+            background: rgba(15,23,42,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .card-header {
-            padding: 1rem 1.2rem;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-weight: 600;
-            background: rgba(0,0,0,0.2);
+        h1 { margin-bottom: 10px; font-size: 1.8rem; }
+        .sub { color: #94a3b8; margin-bottom: 20px; font-size: 0.8rem; }
+        .upload-zone {
+            border: 2px dashed #3b82f6;
+            border-radius: 20px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: 0.2s;
         }
-        .card-body { padding: 1.2rem; }
-        .btn-scan {
+        .upload-zone:hover { background: rgba(59,130,246,0.1); }
+        .loading { display: none; margin: 20px 0; }
+        .result {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+            word-break: break-all;
+        }
+        .link-box {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+        button {
             background: #3b82f6;
             border: none;
-            padding: 0.6rem 1rem;
-            border-radius: 0.6rem;
+            padding: 10px 20px;
+            border-radius: 12px;
             color: white;
             font-weight: 600;
             cursor: pointer;
-            width: 100%;
-            margin-bottom: 1rem;
+            margin: 5px;
         }
-        .device-list { max-height: 300px; overflow-y: auto; }
-        .device-item {
-            background: rgba(0,0,0,0.3);
-            border-radius: 0.6rem;
-            padding: 0.6rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-        }
-        .upload-zone {
-            border: 2px dashed #3b82f6;
-            border-radius: 0.8rem;
-            padding: 1.5rem;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 1rem;
-        }
-        .file-list { max-height: 250px; overflow-y: auto; }
-        .file-item {
-            background: rgba(0,0,0,0.3);
-            border-radius: 0.6rem;
-            padding: 0.6rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        button:hover { background: #2563eb; }
         .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
             background: #1e293b;
-            padding: 0.5rem 1rem;
-            border-radius: 2rem;
+            padding: 10px 20px;
+            border-radius: 40px;
             font-size: 0.8rem;
             opacity: 0;
-            transition: opacity 0.2s;
+            transition: 0.2s;
             pointer-events: none;
         }
-        .badge {
-            background: #10b981;
-            padding: 0.2rem 0.5rem;
-            border-radius: 1rem;
-            font-size: 0.6rem;
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
         }
-        .info-bar {
-            background: rgba(0,0,0,0.4);
-            border-radius: 0.6rem;
-            padding: 0.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.7rem;
-            text-align: center;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1><i class="fas fa-wifi"></i> WiFi Tools</h1>
-        <p>Scan perangkat dalam jaringan & transfer file</p>
+<div class="card">
+    <h1>📤 Telegram Storage</h1>
+    <div class="sub">File disimpan di chat Telegram lo</div>
+    
+    <div class="upload-zone" id="uploadZone">
+        <div>📁 Klik atau tarik file ke sini</div>
+        <small style="color:#64748b;">Maksimal 50MB (batas Telegram)</small>
+        <input type="file" id="fileInput" style="display:none">
     </div>
-
-    <div class="grid">
-        <!-- Left: Scanner -->
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-radar"></i> Perangkat Terhubung
-            </div>
-            <div class="card-body">
-                <div class="info-bar" id="serverInfo">
-                    <i class="fas fa-server"></i> Server: <span id="serverIp">-</span>
-                </div>
-                <button class="btn-scan" id="scanBtn">
-                    <i class="fas fa-search"></i> Scan Jaringan
-                </button>
-                <div id="deviceCount" style="font-size:0.7rem; margin-bottom:0.5rem;"></div>
-                <div id="deviceList" class="device-list">
-                    <div style="text-align:center; color:#475569;">Klik Scan untuk mulai</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right: File Transfer -->
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-exchange-alt"></i> Transfer File
-            </div>
-            <div class="card-body">
-                <div class="upload-zone" id="uploadZone">
-                    <i class="fas fa-cloud-upload-alt" style="font-size:2rem;"></i>
-                    <div>Klik atau tarik file ke sini</div>
-                    <small>Upload file → dapatkan link download</small>
-                    <input type="file" id="fileInput" style="display:none">
-                </div>
-                <div id="fileList" class="file-list">
-                    <div style="text-align:center; color:#475569;">Loading...</div>
-                </div>
-            </div>
-        </div>
+    
+    <div class="loading" id="loading">
+        <div class="spinner"></div> Uploading ke Telegram...
+    </div>
+    
+    <div class="result" id="result">
+        <div style="color:#10b981;">✅ Upload Berhasil!</div>
+        <div class="link-box" id="link"></div>
+        <button onclick="copyLink()">📋 Salin Link</button>
+        <button onclick="resetForm()">⬆️ Upload Lagi</button>
     </div>
 </div>
-<div id="toastMsg" class="toast"></div>
+<div id="toast" class="toast"></div>
 
 <script>
-    function showToast(msg, isError = false) {
-        const toast = document.getElementById('toastMsg');
+    let currentUrl = '';
+    
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
         toast.textContent = msg;
-        toast.style.background = isError ? '#7f1a1a' : '#1e293b';
         toast.style.opacity = '1';
-        setTimeout(() => toast.style.opacity = '0', 2500);
+        setTimeout(() => toast.style.opacity = '0', 2000);
     }
-
-    // ========== SCAN JARINGAN ==========
-    async function scanNetwork() {
-        const btn = document.getElementById('scanBtn');
-        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Scanning...';
-        try {
-            const res = await fetch('/api/scan');
-            const data = await res.json();
-            if (data.success) {
-                renderDevices(data.devices);
-                document.getElementById('serverIp').innerText = data.serverIp || '?';
-                showToast(`Ditemukan ${data.devices.length} perangkat`);
-            } else {
-                renderDevices([]);
-                showToast('Gagal scan', true);
-            }
-        } catch (err) {
-            renderDevices([]);
-            showToast('Error koneksi ke server', true);
-        } finally {
-            btn.innerHTML = '<i class="fas fa-search"></i> Scan Jaringan';
-        }
-    }
-
-    function renderDevices(devices) {
-        const container = document.getElementById('deviceList');
-        const countSpan = document.getElementById('deviceCount');
-        countSpan.innerHTML = devices.length ? `📡 ${devices.length} perangkat ditemukan` : '';
-        
-        if (!devices.length) {
-            container.innerHTML = '<div style="text-align:center; color:#475569;">Tidak ada perangkat terdeteksi</div>';
-            return;
-        }
-        
-        container.innerHTML = devices.map(dev => `
-            <div class="device-item">
-                <div>
-                    <div><i class="fas fa-network-wired"></i> ${dev.ip}</div>
-                    <div style="font-size:0.6rem; color:#94a3b8;">${dev.mac}</div>
-                </div>
-                <div><span class="badge">active</span></div>
-            </div>
-        `).join('');
-    }
-
-    // ========== FILE TRANSFER ==========
-    async function loadFiles() {
-        try {
-            const res = await fetch('/api/files');
-            const data = await res.json();
-            if (data.success) {
-                renderFiles(data.files);
-            }
-        } catch (err) {
-            document.getElementById('fileList').innerHTML = '<div style="text-align:center; color:#ef4444;">Gagal load file</div>';
-        }
-    }
-
-    function renderFiles(files) {
-        const container = document.getElementById('fileList');
-        if (!files.length) {
-            container.innerHTML = '<div style="text-align:center; color:#475569;">Belum ada file</div>';
-            return;
-        }
-        
-        container.innerHTML = files.map(file => `
-            <div class="file-item">
-                <div style="flex:1; overflow:hidden;">
-                    <div><i class="fas fa-file"></i> ${file.name.substring(0, 30)}</div>
-                    <div style="font-size:0.6rem; color:#64748b;">${(file.size/1024).toFixed(1)} KB</div>
-                    <a href="${file.url}" target="_blank" style="color:#60a5fa; font-size:0.7rem;">Download</a>
-                </div>
-                <button class="delete-file" data-name="${file.name}" style="background:none; border:none; color:#ef4444; cursor:pointer;">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `).join('');
-        
-        document.querySelectorAll('.delete-file').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const name = btn.getAttribute('data-name');
-                const res = await fetch(`/api/files/${name}`, { method: 'DELETE' });
-                if (res.ok) {
-                    showToast('File dihapus');
-                    loadFiles();
-                }
-            });
-        });
-    }
-
+    
     async function uploadFile(file) {
         const formData = new FormData();
         formData.append('file', file);
         
-        showToast('Uploading...');
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('result').style.display = 'none';
+        
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
             const data = await res.json();
+            
             if (data.success) {
-                showToast(`Upload berhasil: ${data.originalName}`);
-                loadFiles();
+                currentUrl = data.url;
+                document.getElementById('link').innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
+                document.getElementById('result').style.display = 'block';
+                showToast('Upload berhasil!');
             } else {
-                showToast('Upload gagal', true);
+                showToast('Upload gagal: ' + (data.error || 'Unknown error'));
             }
         } catch (err) {
-            showToast('Error upload', true);
+            showToast('Error: ' + err.message);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
         }
     }
-
-    // Event listeners
-    document.getElementById('scanBtn').addEventListener('click', scanNetwork);
     
+    function copyLink() {
+        if (currentUrl) {
+            navigator.clipboard.writeText(currentUrl);
+            showToast('Link tersalin!');
+        }
+    }
+    
+    function resetForm() {
+        document.getElementById('result').style.display = 'none';
+        document.getElementById('fileInput').value = '';
+        showToast('Siap upload file baru');
+    }
+    
+    // Event listeners
     const zone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
+    
     zone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => {
         if (e.target.files[0]) uploadFile(e.target.files[0]);
     });
+    
     zone.addEventListener('dragover', (e) => e.preventDefault());
     zone.addEventListener('drop', (e) => {
         e.preventDefault();
         if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
     });
-
-    // Initial load
-    loadFiles();
-    scanNetwork();
 </script>
 </body>
 </html>
