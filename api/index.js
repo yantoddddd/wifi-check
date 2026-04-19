@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ========== KONFIGURASI TELEGRAM ==========
 const TELEGRAM_BOT_TOKEN = '8622926718:AAFgjPx774euFGn3NFdekbMfF9NyJgBNUWs';
-const TELEGRAM_CHAT_ID = '-5250943567';
+const TELEGRAM_CHAT_ID = '-5260518165';
 
 // ========== SIMPAN MAPPING FILE DI MEMORY ==========
 const fileStore = new Map();
