@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload ke Telegram</title>
+    <title>FileShare - Link Pendek</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: linear-gradient(135deg, #0f172a, #1e1b4b);
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: system-ui, sans-serif;
             color: white;
             min-height: 100vh;
             display: flex;
@@ -89,21 +89,33 @@
             margin-right: 8px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .file-list { margin-top: 20px; text-align: left; }
+        .file-item {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-item a { color: #60a5fa; text-decoration: none; }
+        .delete-btn { background: #ef4444; padding: 4px 12px; font-size: 0.7rem; }
     </style>
 </head>
 <body>
 <div class="card">
-    <h1>📤 Telegram Storage</h1>
-    <div class="sub">File disimpan di chat Telegram lo</div>
+    <h1>📤 FileShare</h1>
+    <div class="sub">Upload file → dapatkan link pendek</div>
     
     <div class="upload-zone" id="uploadZone">
         <div>📁 Klik atau tarik file ke sini</div>
-        <small style="color:#64748b;">Maksimal 50MB (batas Telegram)</small>
+        <small style="color:#64748b;">Maksimal 50MB</small>
         <input type="file" id="fileInput" style="display:none">
     </div>
     
     <div class="loading" id="loading">
-        <div class="spinner"></div> Uploading ke Telegram...
+        <div class="spinner"></div> Uploading...
     </div>
     
     <div class="result" id="result">
@@ -112,6 +124,8 @@
         <button onclick="copyLink()">📋 Salin Link</button>
         <button onclick="resetForm()">⬆️ Upload Lagi</button>
     </div>
+    
+    <div class="file-list" id="fileList"></div>
 </div>
 <div id="toast" class="toast"></div>
 
@@ -141,6 +155,7 @@
                 document.getElementById('link').innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
                 document.getElementById('result').style.display = 'block';
                 showToast('Upload berhasil!');
+                loadFiles();
             } else {
                 showToast('Upload gagal: ' + (data.error || 'Unknown error'));
             }
@@ -164,6 +179,30 @@
         showToast('Siap upload file baru');
     }
     
+    async function loadFiles() {
+        try {
+            const res = await fetch('/api/files');
+            const files = await res.json();
+            const container = document.getElementById('fileList');
+            
+            if (!files.length) {
+                container.innerHTML = '<div style="text-align:center; color:#475569; margin-top:20px;">Belum ada file</div>';
+                return;
+            }
+            
+            container.innerHTML = files.map(file => `
+                <div class="file-item">
+                    <div style="flex:1;">
+                        <div><a href="/f/${file.id}" target="_blank">${file.name}</a></div>
+                        <small style="color:#64748b;">${(file.size/1024).toFixed(1)} KB</small>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    
     // Event listeners
     const zone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
@@ -178,6 +217,8 @@
         e.preventDefault();
         if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
     });
+    
+    loadFiles();
 </script>
 </body>
 </html>
