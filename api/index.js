@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -131,18 +132,30 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ========== WEBHOOK TELEGRAM ==========
+// ========== WEBHOOK TELEGRAM (DIPERBAIKI) ==========
+// Handle OPTIONS request (buat CORS preflight)
+app.options(`/bot${TELEGRAM_BOT_TOKEN}`, (req, res) => {
+  res.sendStatus(200);
+});
+
+// Handle POST request dari Telegram
 app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
-  console.log('Webhook Telegram:', req.body);
+  // WAJIB: Kirim response 200 OK dulu, apapun yang terjadi
+  res.sendStatus(200);
+  
+  console.log('Webhook Telegram dipanggil');
   
   try {
     const message = req.body.message;
     if (!message) {
-      return res.sendStatus(200);
+      console.log('Tidak ada message dalam payload');
+      return;
     }
     
     const chatId = message.chat.id;
     const text = message.text || '';
+    
+    console.log(`Pesan dari chat ${chatId}: ${text}`);
     
     if (text === '/start') {
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -153,7 +166,7 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
           text: 'Kirim file (gambar, video, dokumen) ke bot ini, nanti akan saya kasih link download.'
         })
       });
-      return res.sendStatus(200);
+      return;
     }
     
     // Kalo user kirim file/document
@@ -180,12 +193,14 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
         mimeType = message.audio.mime_type || 'audio/mpeg';
       }
       
+      console.log(`Mendapat file: ${fileName}, ID: ${fileId}`);
+      
       // Dapatkan URL file dari Telegram
       const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
       const fileData = await fileInfo.json();
       const telegramUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
       
-      // Dapatkan ukuran file (opsional, pake HEAD request)
+      // Dapatkan ukuran file
       let fileSize = 0;
       try {
         const headRes = await fetch(telegramUrl, { method: 'HEAD' });
@@ -205,20 +220,20 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
       
       const shortUrl = `${baseUrl}/f/${randomId}`;
       
+      console.log(`File tersimpan dengan ID: ${randomId}, URL: ${shortUrl}`);
+      
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: `File berhasil diupload!\n\nLink: ${shortUrl}\n\nNama: ${fileName}\nUkuran: ${(fileSize/1024).toFixed(2)} KB`
+          text: `✅ File berhasil diupload!\n\n🔗 Link: ${shortUrl}\n\n📄 Nama: ${fileName}\n📦 Ukuran: ${(fileSize/1024).toFixed(2)} KB`
         })
       });
     }
-    
-    res.sendStatus(200);
   } catch (error) {
     console.error('Webhook error:', error);
-    res.sendStatus(200);
+    // Response 200 sudah dikirim, jadi error hanya di log
   }
 });
 
@@ -254,7 +269,6 @@ app.get('/f/:id', async (req, res) => {
   
   const fileType = getFileType(file.name);
   
-  // Preview: video TIDAK ditampilkan, yang lain tetap
   let previewHtml = '';
   
   if (fileType === 'text') {
@@ -272,7 +286,6 @@ app.get('/f/:id', async (req, res) => {
   } else if (fileType === 'pdf') {
     previewHtml = `<iframe src="${file.telegramUrl}"></iframe>`;
   } else if (fileType === 'video') {
-    // VIDEO: PREVIEW DIHAPUS, cuma pesan
     previewHtml = `<div style="color:#64748b; text-align:center;"><i class="fas fa-film" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview video tidak tersedia. Silakan download untuk melihat.</div>`;
   } else {
     previewHtml = `<div style="color:#64748b; text-align:center;"><i class="fas fa-file" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview tidak tersedia untuk file ini</div>`;
@@ -434,6 +447,10 @@ app.get('/api/setwebhook', async (req, res) => {
   const baseUrl = `https://${req.get('host')}`;
   const webhookUrl = `${baseUrl}/bot${TELEGRAM_BOT_TOKEN}`;
   
+  // Hapus webhook lama dulu
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`);
+  
+  // Set webhook baru
   const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${webhookUrl}`);
   const result = await response.json();
   
