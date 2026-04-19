@@ -1,3 +1,4 @@
+
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -8,44 +9,47 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
-// ========== UPLOAD KE 0X0.ST (GRATIS, TANPA API KEY) ==========
+// ========== TOKEN TELEGRAM LO ==========
+const TELEGRAM_BOT_TOKEN = '8675408721:AAFNmUMRkfJYgDFmdLVJE1tHdFaGdiW4LX8';
+const TELEGRAM_CHAT_ID = '8182530431';
+
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
+      return res.status(400).json({ error: 'No file' });
     }
 
-    // Kirim ke 0x0.st
+    // Kirim file ke Telegram
     const formData = new FormData();
-    formData.append('file', new Blob([req.file.buffer]), req.file.originalname);
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    formData.append('document', new Blob([req.file.buffer]), req.file.originalname);
 
-    const response = await fetch('https://0x0.st', {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
       method: 'POST',
       body: formData
     });
 
-    const result = await response.text();
-    
-    if (response.ok && result.startsWith('https://')) {
+    const result = await response.json();
+
+    if (result.ok) {
+      const fileId = result.result.document.file_id;
+      
+      const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
+      const fileData = await fileInfo.json();
+      const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
+      
       res.json({
         success: true,
-        url: result.trim(),
-        originalName: req.file.originalname,
+        url: fileUrl,
+        name: req.file.originalname,
         size: req.file.size
       });
     } else {
-      res.status(400).json({ success: false, error: result || 'Upload failed' });
+      res.status(400).json({ error: 'Telegram API error' });
     }
-
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ error: error.message });
   }
-});
-
-// ========== LIST FILE (TIDAK BISA, JADI KOSONG SAJA) ==========
-app.get('/api/files', (req, res) => {
-  res.json({ success: true, files: [] });
 });
 
 module.exports = app;
