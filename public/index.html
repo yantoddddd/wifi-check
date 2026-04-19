@@ -3,56 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileShare - Link Pendek</title>
+    <title>FileShare - Upload & Share</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: linear-gradient(135deg, #0f172a, #1e1b4b);
-            font-family: system-ui, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             color: white;
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
         }
+        .container { max-width: 700px; margin: 0 auto; }
         .card {
             background: rgba(15,23,42,0.8);
             backdrop-filter: blur(10px);
             border-radius: 24px;
             padding: 30px;
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
             border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
         }
-        h1 { margin-bottom: 10px; font-size: 1.8rem; }
-        .sub { color: #94a3b8; margin-bottom: 20px; font-size: 0.8rem; }
+        h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .sub {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 0.85rem;
+        }
         .upload-zone {
             border: 2px dashed #3b82f6;
             border-radius: 20px;
             padding: 40px 20px;
-            margin: 20px 0;
+            text-align: center;
             cursor: pointer;
             transition: 0.2s;
         }
-        .upload-zone:hover { background: rgba(59,130,246,0.1); }
-        .loading { display: none; margin: 20px 0; }
+        .upload-zone:hover {
+            background: rgba(59,130,246,0.1);
+            border-color: #60a5fa;
+        }
+        .upload-zone.drag-over {
+            background: rgba(59,130,246,0.2);
+            border-color: #60a5fa;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .result {
             background: #1e293b;
             border-radius: 16px;
             padding: 20px;
             margin-top: 20px;
             display: none;
-            word-break: break-all;
         }
+        .result.success { border-left: 3px solid #10b981; }
+        .result.error { border-left: 3px solid #ef4444; }
         .link-box {
             background: #0f172a;
             padding: 12px;
             border-radius: 12px;
             margin: 15px 0;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-family: monospace;
+            word-break: break-all;
         }
         button {
             background: #3b82f6;
@@ -65,6 +98,43 @@
             margin: 5px;
         }
         button:hover { background: #2563eb; }
+        .btn-secondary { background: #334155; }
+        .btn-secondary:hover { background: #475569; }
+        .file-list { margin-top: 20px; }
+        .file-item {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        .file-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-meta {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        .file-link {
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 0.75rem;
+        }
+        .delete-btn {
+            background: #ef4444;
+            padding: 5px 12px;
+            font-size: 0.7rem;
+        }
+        .delete-btn:hover { background: #dc2626; }
         .toast {
             position: fixed;
             bottom: 30px;
@@ -77,66 +147,53 @@
             opacity: 0;
             transition: 0.2s;
             pointer-events: none;
+            z-index: 1000;
         }
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            display: inline-block;
-            margin-right: 8px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .file-list { margin-top: 20px; text-align: left; }
-        .file-item {
-            background: rgba(0,0,0,0.3);
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .file-item a { color: #60a5fa; text-decoration: none; }
-        .delete-btn { background: #ef4444; padding: 4px 12px; font-size: 0.7rem; }
     </style>
 </head>
 <body>
-<div class="card">
-    <h1>📤 FileShare</h1>
-    <div class="sub">Upload file → dapatkan link pendek</div>
-    
-    <div class="upload-zone" id="uploadZone">
-        <div>📁 Klik atau tarik file ke sini</div>
-        <small style="color:#64748b;">Maksimal 50MB</small>
-        <input type="file" id="fileInput" style="display:none">
+<div class="container">
+    <div class="card">
+        <h1>📤 FileShare</h1>
+        <div class="sub">Upload file → Dapatkan link pendek</div>
+        
+        <div class="upload-zone" id="uploadZone">
+            <div>📁 Klik atau tarik file ke sini</div>
+            <small style="color:#64748b;">Maksimal 50MB · File akan disimpan di Telegram</small>
+            <input type="file" id="fileInput" style="display:none">
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div> Uploading ke Telegram...
+        </div>
+        
+        <div class="result" id="result">
+            <div id="resultIcon">✅</div>
+            <div id="resultMessage">Upload Berhasil!</div>
+            <div class="link-box" id="link"></div>
+            <button id="copyBtn">📋 Salin Link</button>
+            <button id="resetBtn" class="btn-secondary">⬆️ Upload Lagi</button>
+        </div>
     </div>
     
-    <div class="loading" id="loading">
-        <div class="spinner"></div> Uploading...
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">📁 File Tersimpan</h3>
+        <div id="fileList">
+            <div style="text-align:center; color:#64748b;">Loading...</div>
+        </div>
     </div>
-    
-    <div class="result" id="result">
-        <div style="color:#10b981;">✅ Upload Berhasil!</div>
-        <div class="link-box" id="link"></div>
-        <button onclick="copyLink()">📋 Salin Link</button>
-        <button onclick="resetForm()">⬆️ Upload Lagi</button>
-    </div>
-    
-    <div class="file-list" id="fileList"></div>
 </div>
 <div id="toast" class="toast"></div>
 
 <script>
     let currentUrl = '';
     
-    function showToast(msg) {
+    function showToast(msg, isError = false) {
         const toast = document.getElementById('toast');
         toast.textContent = msg;
+        toast.style.background = isError ? '#7f1a1a' : '#1e293b';
         toast.style.opacity = '1';
-        setTimeout(() => toast.style.opacity = '0', 2000);
+        setTimeout(() => toast.style.opacity = '0', 2500);
     }
     
     async function uploadFile(file) {
@@ -152,15 +209,26 @@
             
             if (data.success) {
                 currentUrl = data.url;
+                document.getElementById('resultIcon').innerHTML = '✅';
+                document.getElementById('resultMessage').innerHTML = 'Upload Berhasil!';
                 document.getElementById('link').innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
+                document.getElementById('result').className = 'result success';
                 document.getElementById('result').style.display = 'block';
                 showToast('Upload berhasil!');
                 loadFiles();
             } else {
-                showToast('Upload gagal: ' + (data.error || 'Unknown error'));
+                document.getElementById('resultIcon').innerHTML = '❌';
+                document.getElementById('resultMessage').innerHTML = 'Upload Gagal: ' + (data.error || 'Unknown error');
+                document.getElementById('result').className = 'result error';
+                document.getElementById('result').style.display = 'block';
+                showToast(data.error || 'Upload gagal', true);
             }
         } catch (err) {
-            showToast('Error: ' + err.message);
+            document.getElementById('resultIcon').innerHTML = '❌';
+            document.getElementById('resultMessage').innerHTML = 'Error: ' + err.message;
+            document.getElementById('result').className = 'result error';
+            document.getElementById('result').style.display = 'block';
+            showToast(err.message, true);
         } finally {
             document.getElementById('loading').style.display = 'none';
         }
@@ -176,6 +244,7 @@
     function resetForm() {
         document.getElementById('result').style.display = 'none';
         document.getElementById('fileInput').value = '';
+        currentUrl = '';
         showToast('Siap upload file baru');
     }
     
@@ -186,21 +255,45 @@
             const container = document.getElementById('fileList');
             
             if (!files.length) {
-                container.innerHTML = '<div style="text-align:center; color:#475569; margin-top:20px;">Belum ada file</div>';
+                container.innerHTML = '<div style="text-align:center; color:#64748b;">Belum ada file yang diupload</div>';
                 return;
             }
             
             container.innerHTML = files.map(file => `
                 <div class="file-item">
-                    <div style="flex:1;">
-                        <div><a href="/f/${file.id}" target="_blank">${file.name}</a></div>
-                        <small style="color:#64748b;">${(file.size/1024).toFixed(1)} KB</small>
+                    <div class="file-info">
+                        <div class="file-name">📄 ${escapeHtml(file.name)}</div>
+                        <div class="file-meta">${(file.size/1024).toFixed(1)} KB · ${new Date(file.uploadedAt).toLocaleString()}</div>
+                        <a href="/f/${file.id}" class="file-link" target="_blank">/f/${file.id}</a>
                     </div>
+                    <button class="delete-btn" onclick="deleteFile('${file.id}')">🗑️</button>
                 </div>
             `).join('');
         } catch (err) {
-            console.error(err);
+            document.getElementById('fileList').innerHTML = '<div style="text-align:center; color:#ef4444;">Gagal load file</div>';
         }
+    }
+    
+    async function deleteFile(id) {
+        if (confirm('Hapus file ini?')) {
+            const res = await fetch(`/api/file/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('File dihapus');
+                loadFiles();
+            } else {
+                showToast('Gagal hapus', true);
+            }
+        }
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
     }
     
     // Event listeners
@@ -212,12 +305,21 @@
         if (e.target.files[0]) uploadFile(e.target.files[0]);
     });
     
-    zone.addEventListener('dragover', (e) => e.preventDefault());
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
     zone.addEventListener('drop', (e) => {
         e.preventDefault();
+        zone.classList.remove('drag-over');
         if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
     });
     
+    document.getElementById('copyBtn').addEventListener('click', copyLink);
+    document.getElementById('resetBtn').addEventListener('click', resetForm);
+    
+    // Initial load
     loadFiles();
 </script>
 </body>
