@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FileShare - Upload & Share</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -13,29 +14,29 @@
             min-height: 100vh;
             padding: 20px;
         }
-        .container { max-width: 700px; margin: 0 auto; }
+        .container { max-width: 800px; margin: 0 auto; }
         .card {
             background: rgba(15,23,42,0.8);
             backdrop-filter: blur(10px);
             border-radius: 24px;
-            padding: 30px;
+            padding: 24px;
             border: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         h1 {
-            font-size: 1.8rem;
-            background: linear-gradient(135deg, #60a5fa, #c084fc);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
+            font-size: 1.5rem;
             text-align: center;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         .sub {
             text-align: center;
             color: #94a3b8;
-            margin-bottom: 30px;
-            font-size: 0.85rem;
+            margin-bottom: 24px;
+            font-size: 0.8rem;
         }
         .upload-zone {
             border: 2px dashed #3b82f6;
@@ -59,8 +60,8 @@
             margin: 20px 0;
         }
         .spinner {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border: 2px solid rgba(255,255,255,0.3);
             border-top-color: white;
             border-radius: 50%;
@@ -90,17 +91,18 @@
         button {
             background: #3b82f6;
             border: none;
-            padding: 10px 20px;
-            border-radius: 12px;
+            padding: 8px 16px;
+            border-radius: 10px;
             color: white;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
-            margin: 5px;
+            margin: 4px;
+            font-size: 0.8rem;
         }
         button:hover { background: #2563eb; }
         .btn-secondary { background: #334155; }
         .btn-secondary:hover { background: #475569; }
-        .file-list { margin-top: 20px; }
+        .file-list { margin-top: 16px; max-height: 400px; overflow-y: auto; }
         .file-item {
             background: rgba(0,0,0,0.3);
             border-radius: 12px;
@@ -116,22 +118,23 @@
         }
         .file-name {
             font-weight: 500;
+            font-size: 0.85rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .file-meta {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #64748b;
         }
         .file-link {
             color: #60a5fa;
             text-decoration: none;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
         }
         .delete-btn {
             background: #ef4444;
-            padding: 5px 12px;
+            padding: 4px 10px;
             font-size: 0.7rem;
         }
         .delete-btn:hover { background: #dc2626; }
@@ -141,45 +144,52 @@
             left: 50%;
             transform: translateX(-50%);
             background: #1e293b;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border-radius: 40px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             opacity: 0;
             transition: 0.2s;
             pointer-events: none;
             z-index: 1000;
         }
+        i { margin-right: 6px; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
-        <h1>📤 FileShare</h1>
-        <div class="sub">Upload file → Dapatkan link pendek</div>
+        <h1>
+            <i class="fas fa-cloud-upload-alt"></i>
+            FileShare
+        </h1>
+        <div class="sub">Upload file untuk mendapatkan link pendek</div>
         
         <div class="upload-zone" id="uploadZone">
-            <div>📁 Klik atau tarik file ke sini</div>
-            <small style="color:#64748b;">Maksimal 50MB · File akan disimpan di Telegram</small>
+            <i class="fas fa-upload" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+            <div>Klik atau tarik file ke sini</div>
+            <small style="color:#64748b;">Maksimal 50MB · File disimpan di Telegram</small>
             <input type="file" id="fileInput" style="display:none">
         </div>
         
         <div class="loading" id="loading">
-            <div class="spinner"></div> Uploading ke Telegram...
+            <div class="spinner"></div> Mengupload...
         </div>
         
         <div class="result" id="result">
-            <div id="resultIcon">✅</div>
-            <div id="resultMessage">Upload Berhasil!</div>
+            <div id="resultIcon"></div>
+            <div id="resultMessage"></div>
             <div class="link-box" id="link"></div>
-            <button id="copyBtn">📋 Salin Link</button>
-            <button id="resetBtn" class="btn-secondary">⬆️ Upload Lagi</button>
+            <button id="copyBtn"><i class="far fa-copy"></i> Salin Link</button>
+            <button id="resetBtn" class="btn-secondary"><i class="fas fa-upload"></i> Upload Lagi</button>
         </div>
     </div>
     
     <div class="card">
-        <h3 style="margin-bottom: 15px;">📁 File Tersimpan</h3>
+        <h3 style="margin-bottom: 16px; font-size: 1rem;">
+            <i class="fas fa-history"></i> File Tersimpan
+        </h3>
         <div id="fileList">
-            <div style="text-align:center; color:#64748b;">Loading...</div>
+            <div style="text-align:center; color:#64748b;"><i class="fas fa-spinner fa-pulse"></i> Memuat...</div>
         </div>
     </div>
 </div>
@@ -209,7 +219,7 @@
             
             if (data.success) {
                 currentUrl = data.url;
-                document.getElementById('resultIcon').innerHTML = '✅';
+                document.getElementById('resultIcon').innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
                 document.getElementById('resultMessage').innerHTML = 'Upload Berhasil!';
                 document.getElementById('link').innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
                 document.getElementById('result').className = 'result success';
@@ -217,14 +227,14 @@
                 showToast('Upload berhasil!');
                 loadFiles();
             } else {
-                document.getElementById('resultIcon').innerHTML = '❌';
+                document.getElementById('resultIcon').innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>';
                 document.getElementById('resultMessage').innerHTML = 'Upload Gagal: ' + (data.error || 'Unknown error');
                 document.getElementById('result').className = 'result error';
                 document.getElementById('result').style.display = 'block';
                 showToast(data.error || 'Upload gagal', true);
             }
         } catch (err) {
-            document.getElementById('resultIcon').innerHTML = '❌';
+            document.getElementById('resultIcon').innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>';
             document.getElementById('resultMessage').innerHTML = 'Error: ' + err.message;
             document.getElementById('result').className = 'result error';
             document.getElementById('result').style.display = 'block';
@@ -255,22 +265,22 @@
             const container = document.getElementById('fileList');
             
             if (!files.length) {
-                container.innerHTML = '<div style="text-align:center; color:#64748b;">Belum ada file yang diupload</div>';
+                container.innerHTML = '<div style="text-align:center; color:#64748b;"><i class="far fa-folder-open"></i> Belum ada file</div>';
                 return;
             }
             
             container.innerHTML = files.map(file => `
                 <div class="file-item">
                     <div class="file-info">
-                        <div class="file-name">📄 ${escapeHtml(file.name)}</div>
+                        <div class="file-name"><i class="far fa-file"></i> ${escapeHtml(file.name)}</div>
                         <div class="file-meta">${(file.size/1024).toFixed(1)} KB · ${new Date(file.uploadedAt).toLocaleString()}</div>
-                        <a href="/f/${file.id}" class="file-link" target="_blank">/f/${file.id}</a>
+                        <a href="/f/${file.id}" class="file-link" target="_blank"><i class="fas fa-external-link-alt"></i> /f/${file.id}</a>
                     </div>
-                    <button class="delete-btn" onclick="deleteFile('${file.id}')">🗑️</button>
+                    <button class="delete-btn" onclick="deleteFile('${file.id}')"><i class="fas fa-trash"></i></button>
                 </div>
             `).join('');
         } catch (err) {
-            document.getElementById('fileList').innerHTML = '<div style="text-align:center; color:#ef4444;">Gagal load file</div>';
+            document.getElementById('fileList').innerHTML = '<div style="text-align:center; color:#ef4444;"><i class="fas fa-exclamation-triangle"></i> Gagal memuat file</div>';
         }
     }
     
@@ -296,7 +306,6 @@
         });
     }
     
-    // Event listeners
     const zone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     
@@ -319,7 +328,6 @@
     document.getElementById('copyBtn').addEventListener('click', copyLink);
     document.getElementById('resetBtn').addEventListener('click', resetForm);
     
-    // Initial load
     loadFiles();
 </script>
 </body>
