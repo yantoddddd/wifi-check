@@ -181,6 +181,49 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
         mimeType = message.document.mime_type || 'application/octet-stream';
       } else if (message.video) {
         fileId = message.video.file_id;
+// ========== WEBHOOK TELEGRAM (PAKAI PATH SEDERHANA) ==========
+app.post('/webhook', async (req, res) => {
+  // WAJIB: Langsung kirim response 200 OK
+  res.sendStatus(200);
+  
+  console.log('Webhook Telegram dipanggil');
+  
+  try {
+    const message = req.body.message;
+    if (!message) {
+      console.log('Tidak ada message');
+      return;
+    }
+    
+    const chatId = message.chat.id;
+    const text = message.text || '';
+    
+    console.log(`Dari chat ${chatId}: ${text}`);
+    
+    if (text === '/start') {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: 'Kirim file (gambar, video, dokumen) ke bot ini, nanti akan saya kasih link download.'
+        })
+      });
+      return;
+    }
+    
+    // Handle file (document, video, photo, audio)
+    if (message.document || message.video || message.photo || message.audio) {
+      let fileId = null;
+      let fileName = 'file';
+      let mimeType = 'application/octet-stream';
+      
+      if (message.document) {
+        fileId = message.document.file_id;
+        fileName = message.document.file_name || 'document';
+        mimeType = message.document.mime_type || 'application/octet-stream';
+      } else if (message.video) {
+        fileId = message.video.file_id;
         fileName = message.video.file_name || 'video.mp4';
         mimeType = message.video.mime_type || 'video/mp4';
       } else if (message.photo) {
@@ -193,14 +236,13 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
         mimeType = message.audio.mime_type || 'audio/mpeg';
       }
       
-      console.log(`Mendapat file: ${fileName}, ID: ${fileId}`);
+      console.log(`Menerima file: ${fileName}`);
       
       // Dapatkan URL file dari Telegram
       const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
       const fileData = await fileInfo.json();
       const telegramUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
       
-      // Dapatkan ukuran file
       let fileSize = 0;
       try {
         const headRes = await fetch(telegramUrl, { method: 'HEAD' });
@@ -220,8 +262,6 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
       
       const shortUrl = `${baseUrl}/f/${randomId}`;
       
-      console.log(`File tersimpan dengan ID: ${randomId}, URL: ${shortUrl}`);
-      
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,8 +272,7 @@ app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Webhook error:', error);
-    // Response 200 sudah dikirim, jadi error hanya di log
+    console.error('Error:', error);
   }
 });
 
