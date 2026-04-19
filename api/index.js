@@ -8,10 +8,11 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ========== KONFIGURASI TELEGRAM ==========
-const TELEGRAM_BOT_TOKEN = '8675408721:AAFNmUMRkfJYgDFmdLVJE1tHdFaGdiW4LX8';
-const TELEGRAM_CHAT_ID = '8182530431';
+const TELEGRAM_BOT_TOKEN = '8622926718:AAFgjPx774euFGn3NFdekbMfF9NyJgBNUWs';
+const TELEGRAM_CHAT_ID = '-5250943567';
 
 // ========== SIMPAN MAPPING FILE DI MEMORY ==========
 const fileStore = new Map();
@@ -76,9 +77,9 @@ async function getImageBase64(telegramUrl) {
   }
 }
 
-// ========== ENDPOINT UPLOAD ==========
+// ========== ENDPOINT UPLOAD DARI WEB ==========
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-  console.log('Received upload request');
+  console.log('Upload dari web');
   
   try {
     if (!req.file) {
@@ -130,7 +131,98 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ========== ENDPOINT WEB VIEW ==========
+// ========== WEBHOOK TELEGRAM ==========
+app.post(`/bot${TELEGRAM_BOT_TOKEN}`, async (req, res) => {
+  console.log('Webhook Telegram:', req.body);
+  
+  try {
+    const message = req.body.message;
+    if (!message) {
+      return res.sendStatus(200);
+    }
+    
+    const chatId = message.chat.id;
+    const text = message.text || '';
+    
+    if (text === '/start') {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: 'Kirim file (gambar, video, dokumen) ke bot ini, nanti akan saya kasih link download.'
+        })
+      });
+      return res.sendStatus(200);
+    }
+    
+    // Kalo user kirim file/document
+    if (message.document || message.video || message.photo || message.audio) {
+      let fileId = null;
+      let fileName = 'file';
+      let mimeType = 'application/octet-stream';
+      
+      if (message.document) {
+        fileId = message.document.file_id;
+        fileName = message.document.file_name || 'document';
+        mimeType = message.document.mime_type || 'application/octet-stream';
+      } else if (message.video) {
+        fileId = message.video.file_id;
+        fileName = message.video.file_name || 'video.mp4';
+        mimeType = message.video.mime_type || 'video/mp4';
+      } else if (message.photo) {
+        fileId = message.photo[message.photo.length - 1].file_id;
+        fileName = 'photo.jpg';
+        mimeType = 'image/jpeg';
+      } else if (message.audio) {
+        fileId = message.audio.file_id;
+        fileName = message.audio.file_name || 'audio.mp3';
+        mimeType = message.audio.mime_type || 'audio/mpeg';
+      }
+      
+      // Dapatkan URL file dari Telegram
+      const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
+      const fileData = await fileInfo.json();
+      const telegramUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
+      
+      // Dapatkan ukuran file (opsional, pake HEAD request)
+      let fileSize = 0;
+      try {
+        const headRes = await fetch(telegramUrl, { method: 'HEAD' });
+        fileSize = parseInt(headRes.headers.get('content-length') || '0');
+      } catch (e) {}
+      
+      const randomId = crypto.randomBytes(8).toString('hex');
+      const baseUrl = `https://${req.get('host')}`;
+      
+      fileStore.set(randomId, {
+        telegramUrl: telegramUrl,
+        name: fileName,
+        size: fileSize,
+        uploadedAt: new Date().toISOString(),
+        mimeType: mimeType
+      });
+      
+      const shortUrl = `${baseUrl}/f/${randomId}`;
+      
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `File berhasil diupload!\n\nLink: ${shortUrl}\n\nNama: ${fileName}\nUkuran: ${(fileSize/1024).toFixed(2)} KB`
+        })
+      });
+    }
+    
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.sendStatus(200);
+  }
+});
+
+// ========== ENDPOINT WEB VIEW (PREVIEW TANPA VIDEO) ==========
 app.get('/f/:id', async (req, res) => {
   const id = req.params.id;
   console.log(`Looking for file ID: ${id}`);
@@ -162,7 +254,7 @@ app.get('/f/:id', async (req, res) => {
   
   const fileType = getFileType(file.name);
   
-  // Ambil konten untuk preview
+  // Preview: video TIDAK ditampilkan, yang lain tetap
   let previewHtml = '';
   
   if (fileType === 'text') {
@@ -175,23 +267,24 @@ app.get('/f/:id', async (req, res) => {
     if (base64) {
       previewHtml = `<img src="${base64}" alt="preview">`;
     }
-  } else if (fileType === 'video') {
-    previewHtml = `<video controls src="${file.telegramUrl}"></video>`;
   } else if (fileType === 'audio') {
     previewHtml = `<audio controls src="${file.telegramUrl}"></audio>`;
   } else if (fileType === 'pdf') {
     previewHtml = `<iframe src="${file.telegramUrl}"></iframe>`;
+  } else if (fileType === 'video') {
+    // VIDEO: PREVIEW DIHAPUS, cuma pesan
+    previewHtml = `<div style="color:#64748b; text-align:center;"><i class="fas fa-film" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview video tidak tersedia. Silakan download untuk melihat.</div>`;
+  } else {
+    previewHtml = `<div style="color:#64748b; text-align:center;"><i class="fas fa-file" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview tidak tersedia untuk file ini</div>`;
   }
   
-  // Tentukan icon berdasarkan tipe file
   let fileIcon = 'fa-file';
   if (fileType === 'image') fileIcon = 'fa-image';
-  else if (fileType === 'video') fileIcon = 'fa-video';
+  else if (fileType === 'video') fileIcon = 'fa-film';
   else if (fileType === 'audio') fileIcon = 'fa-music';
   else if (fileType === 'pdf') fileIcon = 'fa-file-pdf';
   else if (fileType === 'text') fileIcon = 'fa-file-code';
   
-  // Kirim halaman HTML
   res.send(`
     <!DOCTYPE html>
     <html lang="id">
@@ -210,8 +303,6 @@ app.get('/f/:id', async (req, res) => {
           padding: 20px;
         }
         .container { max-width: 1200px; margin: 0 auto; }
-        
-        /* Header dengan nama file di kiri, download di kanan */
         .header {
           display: flex;
           justify-content: space-between;
@@ -231,10 +322,7 @@ app.get('/f/:id', async (req, res) => {
           color: #e2e8f0;
           word-break: break-all;
         }
-        .file-info i {
-          color: #60a5fa;
-          font-size: 1rem;
-        }
+        .file-info i { color: #60a5fa; font-size: 1rem; }
         .download-btn {
           background: #3b82f6;
           border: none;
@@ -250,11 +338,7 @@ app.get('/f/:id', async (req, res) => {
           font-size: 0.8rem;
           transition: 0.2s;
         }
-        .download-btn:hover {
-          background: #2563eb;
-        }
-        
-        /* Preview di tengah */
+        .download-btn:hover { background: #2563eb; }
         .preview-container {
           display: flex;
           justify-content: center;
@@ -264,10 +348,7 @@ app.get('/f/:id', async (req, res) => {
           border-radius: 20px;
           padding: 30px;
         }
-        .preview-content {
-          max-width: 100%;
-          text-align: center;
-        }
+        .preview-content { max-width: 100%; text-align: center; }
         pre {
           background: #020617;
           padding: 20px;
@@ -283,17 +364,12 @@ app.get('/f/:id', async (req, res) => {
           text-align: left;
           max-width: 100%;
         }
-        img, video, audio {
+        img, audio, iframe {
           max-width: 100%;
           max-height: 70vh;
           border-radius: 12px;
         }
-        iframe {
-          width: 100%;
-          height: 70vh;
-          border-radius: 12px;
-          border: none;
-        }
+        iframe { width: 100%; height: 70vh; border: none; }
         .meta {
           text-align: center;
           color: #64748b;
@@ -317,7 +393,7 @@ app.get('/f/:id', async (req, res) => {
         
         <div class="preview-container">
           <div class="preview-content">
-            ${previewHtml || `<div style="color:#64748b; text-align:center;"><i class="fas fa-eye-slash" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview tidak tersedia untuk file ini</div>`}
+            ${previewHtml}
           </div>
         </div>
         
@@ -351,6 +427,17 @@ app.delete('/api/file/:id', (req, res) => {
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', files: fileStore.size });
+});
+
+// ========== SETUP WEBHOOK TELEGRAM ==========
+app.get('/api/setwebhook', async (req, res) => {
+  const baseUrl = `https://${req.get('host')}`;
+  const webhookUrl = `${baseUrl}/bot${TELEGRAM_BOT_TOKEN}`;
+  
+  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${webhookUrl}`);
+  const result = await response.json();
+  
+  res.json(result);
 });
 
 module.exports = app;
