@@ -14,7 +14,7 @@ const TELEGRAM_BOT_TOKEN = '8675408721:AAFNmUMRkfJYgDFmdLVJE1tHdFaGdiW4LX8';
 const TELEGRAM_CHAT_ID = '8182530431';
 
 // ========== SIMPAN MAPPING FILE DI MEMORY ==========
-const fileStore = new Map(); // key: randomId, value: {telegramUrl, name, size, uploadedAt}
+const fileStore = new Map();
 
 // ========== HELPER ESCAPE HTML ==========
 function escapeHtml(str) {
@@ -27,17 +27,38 @@ function escapeHtml(str) {
   });
 }
 
+// ========== CEK APAKAH FILE TEKS ==========
+function isTextFile(filename) {
+  const textExtensions = ['.txt', '.js', '.json', '.html', '.css', '.xml', '.md', '.py', '.java', '.c', '.cpp', '.php', '.rb', '.go', '.rs', '.sh', '.bat', '.ini', '.cfg', '.conf', '.log', '.csv'];
+  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+  return textExtensions.includes(ext);
+}
+
+// ========== AMBIL ISI FILE DARI TELEGRAM ==========
+async function getFileContent(telegramUrl) {
+  try {
+    const response = await fetch(telegramUrl);
+    if (!response.ok) return null;
+    const text = await response.text();
+    // Batasi preview maksimal 10.000 karakter
+    if (text.length > 10000) {
+      return text.substring(0, 10000) + '\n\n... (file terlalu besar, hanya 10.000 karakter pertama yang ditampilkan)';
+    }
+    return text;
+  } catch (error) {
+    console.error('Gagal ambil isi file:', error);
+    return null;
+  }
+}
+
 // ========== ENDPOINT UPLOAD ==========
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   console.log('📤 Received upload request');
   
   try {
     if (!req.file) {
-      console.log('❌ No file in request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
-
-    console.log(`📁 File: ${req.file.originalname}, Size: ${req.file.size} bytes`);
 
     // Kirim file ke Telegram
     const formData = new FormData();
@@ -52,23 +73,17 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const result = await response.json();
 
     if (!result.ok) {
-      console.log('❌ Telegram API error:', result);
       return res.status(400).json({ error: 'Telegram API error: ' + result.description });
     }
 
-    console.log('✅ File sent to Telegram');
-
     const fileId = result.result.document.file_id;
     
-    // Dapetin URL asli dari Telegram
     const fileInfo = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
     const fileData = await fileInfo.json();
     const telegramUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
     
-    // Bikin ID acak buat link
     const randomId = crypto.randomBytes(8).toString('hex');
     
-    // Simpan mapping
     fileStore.set(randomId, {
       telegramUrl: telegramUrl,
       name: req.file.originalname,
@@ -76,10 +91,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       uploadedAt: new Date().toISOString()
     });
     
-    console.log(`📦 File stored with ID: ${randomId}`);
-    console.log(`📊 Total files in store: ${fileStore.size}`);
-    
-    // Kirim balik link pake domain web lo
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     res.json({
       success: true,
@@ -94,92 +105,45 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ========== ENDPOINT WEB VIEW (BUKAN REDIRECT) ==========
-app.get('/f/:id', (req, res) => {
+// ========== ENDPOINT WEB VIEW (DENGAN PREVIEW ISI) ==========
+app.get('/f/:id', async (req, res) => {
   const id = req.params.id;
   console.log(`🔍 Looking for file ID: ${id}`);
-  console.log(`📦 Current fileStore size: ${fileStore.size}`);
-  
-  // Log semua ID yang ada (buat debugging)
-  if (fileStore.size > 0) {
-    console.log('📋 Available IDs:', Array.from(fileStore.keys()).join(', '));
-  }
   
   const file = fileStore.get(id);
   
   if (!file) {
-    console.log(`❌ File ID ${id} not found`);
     return res.status(404).send(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>File Not Found - FileShare</title>
+        <title>File Not Found</title>
         <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            background: linear-gradient(135deg, #0f172a, #1e1b4b);
-            font-family: system-ui, -apple-system, sans-serif;
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-          }
-          .card {
-            background: rgba(15,23,42,0.8);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-          }
-          .file-icon { font-size: 4rem; margin-bottom: 20px; }
-          h1 { margin-bottom: 10px; }
-          code {
-            background: #1e293b;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-family: monospace;
-          }
-          a {
-            color: #60a5fa;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 20px;
-          }
-          .btn {
-            background: #3b82f6;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-          }
-          .btn:hover { background: #2563eb; }
+          body { font-family: system-ui; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+          .card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; }
+          a { color: #60a5fa; }
         </style>
       </head>
       <body>
         <div class="card">
-          <div class="file-icon">❌</div>
-          <h1>File Tidak Ditemukan</h1>
+          <h1>❌ File Tidak Ditemukan</h1>
           <p>ID: <code>${escapeHtml(id)}</code></p>
-          <p>File mungkin sudah kadaluarsa atau server baru saja di-deploy ulang.</p>
-          <a href="/" class="btn">← Kembali ke Halaman Utama</a>
+          <a href="/">← Kembali</a>
         </div>
       </body>
       </html>
     `);
   }
   
-  console.log(`✅ Serving web view for ${id} → ${file.telegramUrl}`);
+  // Ambil isi file kalo dia file teks
+  let fileContent = null;
+  let isText = isTextFile(file.name);
   
-  // Kirim halaman HTML web view
+  if (isText) {
+    fileContent = await getFileContent(file.telegramUrl);
+  }
+  
+  // Kirim halaman HTML web view dengan preview
   res.send(`
     <!DOCTYPE html>
     <html lang="id">
@@ -194,114 +158,117 @@ app.get('/f/:id', (req, res) => {
           font-family: system-ui, -apple-system, sans-serif;
           color: white;
           min-height: 100vh;
-          display: flex;
-          justify-content: center;
-          align-items: center;
           padding: 20px;
         }
+        .container { max-width: 900px; margin: 0 auto; }
         .card {
           background: rgba(15,23,42,0.8);
           backdrop-filter: blur(10px);
           border-radius: 24px;
-          padding: 40px;
-          max-width: 500px;
-          width: 100%;
-          text-align: center;
+          padding: 30px;
           border: 1px solid rgba(255,255,255,0.1);
-          animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .file-icon {
-          font-size: 4rem;
           margin-bottom: 20px;
         }
-        h2 {
-          margin-bottom: 10px;
-          font-size: 1.5rem;
-        }
+        h1 { font-size: 1.5rem; margin-bottom: 10px; }
+        .file-icon { font-size: 3rem; margin-bottom: 10px; }
         .file-name {
-          font-size: 1rem;
-          font-weight: 500;
-          word-break: break-all;
           background: #1e293b;
           padding: 12px;
           border-radius: 12px;
-          margin: 20px 0;
           font-family: monospace;
+          word-break: break-all;
+          margin: 15px 0;
         }
-        .file-meta {
-          color: #94a3b8;
-          margin-bottom: 30px;
-          font-size: 0.8rem;
-          line-height: 1.6;
-        }
-        .btn-group {
-          display: flex;
-          gap: 12px;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
+        .file-meta { color: #94a3b8; margin-bottom: 20px; font-size: 0.8rem; }
         .btn {
           background: #3b82f6;
           border: none;
-          padding: 12px 24px;
+          padding: 10px 20px;
           border-radius: 12px;
           color: white;
           font-weight: 600;
-          font-size: 0.9rem;
           cursor: pointer;
           text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          transition: all 0.2s;
+          display: inline-block;
+          margin: 5px;
         }
-        .btn:hover {
-          background: #2563eb;
-          transform: translateY(-1px);
+        .btn:hover { background: #2563eb; }
+        .btn-secondary { background: #334155; }
+        .preview {
+          background: #0f172a;
+          border-radius: 16px;
+          padding: 20px;
+          margin-top: 20px;
+          overflow-x: auto;
         }
-        .btn-secondary {
-          background: #334155;
+        .preview h3 {
+          margin-bottom: 15px;
+          color: #60a5fa;
+          font-size: 0.9rem;
         }
-        .btn-secondary:hover {
-          background: #475569;
+        pre {
+          background: #020617;
+          padding: 15px;
+          border-radius: 12px;
+          font-family: monospace;
+          font-size: 0.75rem;
+          overflow-x: auto;
+          white-space: pre-wrap;
+          word-break: break-all;
+          color: #e2e8f0;
+          max-height: 500px;
+          overflow-y: auto;
         }
-        .footer {
-          margin-top: 30px;
-          font-size: 0.65rem;
+        .badge {
+          background: #10b981;
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-size: 0.6rem;
+          margin-left: 10px;
+        }
+        footer {
+          text-align: center;
           color: #475569;
-        }
-        .footer a {
-          color: #64748b;
-          text-decoration: none;
+          font-size: 0.7rem;
+          margin-top: 20px;
         }
       </style>
     </head>
     <body>
-      <div class="card">
-        <div class="file-icon">
-          ${file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼️' : '📄'}
+      <div class="container">
+        <div class="card">
+          <div class="file-icon">${file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼️' : (isText ? '📝' : '📄')}</div>
+          <h1>${escapeHtml(file.name)}${isText ? '<span class="badge">Preview Tersedia</span>' : ''}</h1>
+          <div class="file-name">${escapeHtml(file.name)}</div>
+          <div class="file-meta">
+            📦 Ukuran: ${(file.size / 1024).toFixed(2)} KB<br>
+            📅 Diupload: ${new Date(file.uploadedAt).toLocaleString('id-ID')}
+          </div>
+          <div>
+            <a href="${file.telegramUrl}" class="btn" download>⬇️ Download File</a>
+            <a href="/" class="btn btn-secondary">🏠 Upload Lagi</a>
+          </div>
         </div>
-        <h2>File Siap Didownload</h2>
-        <div class="file-name">${escapeHtml(file.name)}</div>
-        <div class="file-meta">
-          📦 Ukuran: ${(file.size / 1024).toFixed(2)} KB<br>
-          📅 Diupload: ${new Date(file.uploadedAt).toLocaleString('id-ID')}
+        
+        ${isText && fileContent ? `
+        <div class="card">
+          <div class="preview">
+            <h3>📄 Preview Isi File</h3>
+            <pre>${escapeHtml(fileContent)}</pre>
+          </div>
         </div>
-        <div class="btn-group">
-          <a href="${file.telegramUrl}" class="btn" download>
-            ⬇️ Download File
-          </a>
-          <a href="/" class="btn btn-secondary">
-            🏠 Upload Lagi
-          </a>
+        ` : (isText && !fileContent ? `
+        <div class="card">
+          <div class="preview">
+            <h3>⚠️ Gagal Memuat Preview</h3>
+            <p style="color: #94a3b8;">Tidak bisa membaca isi file. Silakan download untuk melihat.</p>
+          </div>
         </div>
-        <div class="footer">
-          🔗 Link ini bersifat sementara dan akan kadaluarsa jika server di-deploy ulang
-        </div>
+        ` : '')}
+        
+        <footer>
+          🔗 File tersimpan di Telegram | Link ini bersifat sementara
+        </footer>
       </div>
     </body>
     </html>
@@ -316,7 +283,6 @@ app.get('/api/files', (req, res) => {
     size: file.size,
     uploadedAt: file.uploadedAt
   }));
-  console.log(`📋 Returning ${files.length} files`);
   res.json(files);
 });
 
@@ -324,17 +290,12 @@ app.get('/api/files', (req, res) => {
 app.delete('/api/file/:id', (req, res) => {
   const id = req.params.id;
   const deleted = fileStore.delete(id);
-  console.log(`🗑️ Delete ${id}: ${deleted ? 'success' : 'not found'}`);
   res.json({ success: deleted });
 });
 
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    files: fileStore.size,
-    timestamp: new Date().toISOString()
-  });
+  res.json({ status: 'ok', files: fileStore.size });
 });
 
 module.exports = app;
