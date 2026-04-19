@@ -16,6 +16,17 @@ const TELEGRAM_CHAT_ID = '8182530431';
 // ========== SIMPAN MAPPING FILE DI MEMORY ==========
 const fileStore = new Map(); // key: randomId, value: {telegramUrl, name, size, uploadedAt}
 
+// ========== HELPER ESCAPE HTML ==========
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
 // ========== ENDPOINT UPLOAD ==========
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   console.log('📤 Received upload request');
@@ -83,7 +94,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ========== ENDPOINT REDIRECT (LIHAT FILE) ==========
+// ========== ENDPOINT WEB VIEW (BUKAN REDIRECT) ==========
 app.get('/f/:id', (req, res) => {
   const id = req.params.id;
   console.log(`🔍 Looking for file ID: ${id}`);
@@ -102,28 +113,199 @@ app.get('/f/:id', (req, res) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>File Not Found</title>
+        <title>File Not Found - FileShare</title>
         <style>
-          body { font-family: system-ui; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-          .card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; }
-          a { color: #60a5fa; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            font-family: system-ui, -apple-system, sans-serif;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+          }
+          .card {
+            background: rgba(15,23,42,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+          }
+          .file-icon { font-size: 4rem; margin-bottom: 20px; }
+          h1 { margin-bottom: 10px; }
+          code {
+            background: #1e293b;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-family: monospace;
+          }
+          a {
+            color: #60a5fa;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+          }
+          .btn {
+            background: #3b82f6;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+          }
+          .btn:hover { background: #2563eb; }
         </style>
       </head>
       <body>
         <div class="card">
-          <h1>❌ File Tidak Ditemukan</h1>
-          <p>ID: <code>${id}</code></p>
+          <div class="file-icon">❌</div>
+          <h1>File Tidak Ditemukan</h1>
+          <p>ID: <code>${escapeHtml(id)}</code></p>
           <p>File mungkin sudah kadaluarsa atau server baru saja di-deploy ulang.</p>
-          <a href="/">← Kembali ke halaman utama</a>
+          <a href="/" class="btn">← Kembali ke Halaman Utama</a>
         </div>
       </body>
       </html>
     `);
   }
   
-  console.log(`✅ Redirecting ${id} → ${file.telegramUrl}`);
-  // Redirect ke URL Telegram
-  res.redirect(file.telegramUrl);
+  console.log(`✅ Serving web view for ${id} → ${file.telegramUrl}`);
+  
+  // Kirim halaman HTML web view
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${escapeHtml(file.name)} - FileShare</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          background: linear-gradient(135deg, #0f172a, #1e1b4b);
+          font-family: system-ui, -apple-system, sans-serif;
+          color: white;
+          min-height: 100vh;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 20px;
+        }
+        .card {
+          background: rgba(15,23,42,0.8);
+          backdrop-filter: blur(10px);
+          border-radius: 24px;
+          padding: 40px;
+          max-width: 500px;
+          width: 100%;
+          text-align: center;
+          border: 1px solid rgba(255,255,255,0.1);
+          animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .file-icon {
+          font-size: 4rem;
+          margin-bottom: 20px;
+        }
+        h2 {
+          margin-bottom: 10px;
+          font-size: 1.5rem;
+        }
+        .file-name {
+          font-size: 1rem;
+          font-weight: 500;
+          word-break: break-all;
+          background: #1e293b;
+          padding: 12px;
+          border-radius: 12px;
+          margin: 20px 0;
+          font-family: monospace;
+        }
+        .file-meta {
+          color: #94a3b8;
+          margin-bottom: 30px;
+          font-size: 0.8rem;
+          line-height: 1.6;
+        }
+        .btn-group {
+          display: flex;
+          gap: 12px;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        .btn {
+          background: #3b82f6;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 12px;
+          color: white;
+          font-weight: 600;
+          font-size: 0.9rem;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+        .btn:hover {
+          background: #2563eb;
+          transform: translateY(-1px);
+        }
+        .btn-secondary {
+          background: #334155;
+        }
+        .btn-secondary:hover {
+          background: #475569;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 0.65rem;
+          color: #475569;
+        }
+        .footer a {
+          color: #64748b;
+          text-decoration: none;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="file-icon">
+          ${file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼️' : '📄'}
+        </div>
+        <h2>File Siap Didownload</h2>
+        <div class="file-name">${escapeHtml(file.name)}</div>
+        <div class="file-meta">
+          📦 Ukuran: ${(file.size / 1024).toFixed(2)} KB<br>
+          📅 Diupload: ${new Date(file.uploadedAt).toLocaleString('id-ID')}
+        </div>
+        <div class="btn-group">
+          <a href="${file.telegramUrl}" class="btn" download>
+            ⬇️ Download File
+          </a>
+          <a href="/" class="btn btn-secondary">
+            🏠 Upload Lagi
+          </a>
+        </div>
+        <div class="footer">
+          🔗 Link ini bersifat sementara dan akan kadaluarsa jika server di-deploy ulang
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // ========== ENDPOINT LIST FILE ==========
