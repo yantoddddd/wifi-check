@@ -27,26 +27,51 @@ function escapeHtml(str) {
   });
 }
 
-// ========== CEK APAKAH FILE TEKS ==========
-function isTextFile(filename) {
-  const textExtensions = ['.txt', '.js', '.json', '.html', '.css', '.xml', '.md', '.py', '.java', '.c', '.cpp', '.php', '.rb', '.go', '.rs', '.sh', '.bat', '.ini', '.cfg', '.conf', '.log', '.csv'];
+// ========== CEK TIPE FILE ==========
+function getFileType(filename) {
   const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
-  return textExtensions.includes(ext);
+  
+  const imageExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'];
+  const videoExt = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  const audioExt = ['.mp3', '.wav', '.ogg', '.m4a', '.flac'];
+  const pdfExt = ['.pdf'];
+  const textExt = ['.txt', '.js', '.json', '.html', '.css', '.xml', '.md', '.py', '.java', '.c', '.cpp', '.php', '.rb', '.go', '.rs', '.sh', '.bat', '.ini', '.cfg', '.conf', '.log', '.csv'];
+  
+  if (imageExt.includes(ext)) return 'image';
+  if (videoExt.includes(ext)) return 'video';
+  if (audioExt.includes(ext)) return 'audio';
+  if (pdfExt.includes(ext)) return 'pdf';
+  if (textExt.includes(ext)) return 'text';
+  return 'other';
 }
 
-// ========== AMBIL ISI FILE DARI TELEGRAM ==========
-async function getFileContent(telegramUrl) {
+// ========== AMBIL ISI FILE TEKS ==========
+async function getTextContent(telegramUrl) {
   try {
     const response = await fetch(telegramUrl);
     if (!response.ok) return null;
     const text = await response.text();
-    // Batasi preview maksimal 10.000 karakter
-    if (text.length > 10000) {
-      return text.substring(0, 10000) + '\n\n... (file terlalu besar, hanya 10.000 karakter pertama yang ditampilkan)';
+    if (text.length > 50000) {
+      return text.substring(0, 50000) + '\n\n... (file terlalu besar, hanya 50.000 karakter pertama yang ditampilkan)';
     }
     return text;
   } catch (error) {
-    console.error('Gagal ambil isi file:', error);
+    console.error('Gagal ambil isi file teks:', error);
+    return null;
+  }
+}
+
+// ========== AMBIL BASE64 UNTUK GAMBAR ==========
+async function getImageBase64(telegramUrl) {
+  try {
+    const response = await fetch(telegramUrl);
+    if (!response.ok) return null;
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error('Gagal ambil gambar:', error);
     return null;
   }
 }
@@ -60,7 +85,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Kirim file ke Telegram
     const formData = new FormData();
     formData.append('chat_id', TELEGRAM_CHAT_ID);
     formData.append('document', new Blob([req.file.buffer]), req.file.originalname);
@@ -88,7 +112,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       telegramUrl: telegramUrl,
       name: req.file.originalname,
       size: req.file.size,
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
+      mimeType: req.file.mimetype
     });
     
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -105,7 +130,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ========== ENDPOINT WEB VIEW (DENGAN PREVIEW ISI) ==========
+// ========== ENDPOINT WEB VIEW (PREVIEW SEMUA FILE) ==========
 app.get('/f/:id', async (req, res) => {
   const id = req.params.id;
   console.log(`🔍 Looking for file ID: ${id}`);
@@ -135,15 +160,70 @@ app.get('/f/:id', async (req, res) => {
     `);
   }
   
-  // Ambil isi file kalo dia file teks
-  let fileContent = null;
-  let isText = isTextFile(file.name);
+  const fileType = getFileType(file.name);
   
-  if (isText) {
-    fileContent = await getFileContent(file.telegramUrl);
+  // Ambil konten untuk preview
+  let previewContent = null;
+  let previewHtml = '';
+  
+  if (fileType === 'text') {
+    const content = await getTextContent(file.telegramUrl);
+    if (content) {
+      previewHtml = `
+        <div class="preview">
+          <h3>📄 Preview Isi File</h3>
+          <pre>${escapeHtml(content)}</pre>
+        </div>
+      `;
+    }
+  } else if (fileType === 'image') {
+    const base64 = await getImageBase64(file.telegramUrl);
+    if (base64) {
+      previewHtml = `
+        <div class="preview">
+          <h3>🖼️ Preview Gambar</h3>
+          <img src="${base64}" style="max-width: 100%; border-radius: 12px;" alt="preview">
+        </div>
+      `;
+    }
+  } else if (fileType === 'video') {
+    previewHtml = `
+      <div class="preview">
+        <h3>🎬 Preview Video</h3>
+        <video controls style="max-width: 100%; border-radius: 12px;">
+          <source src="${file.telegramUrl}" type="${file.mimeType || 'video/mp4'}">
+          Browser tidak mendukung tag video.
+        </video>
+      </div>
+    `;
+  } else if (fileType === 'audio') {
+    previewHtml = `
+      <div class="preview">
+        <h3>🎵 Preview Audio</h3>
+        <audio controls style="width: 100%;">
+          <source src="${file.telegramUrl}" type="${file.mimeType || 'audio/mpeg'}">
+          Browser tidak mendukung tag audio.
+        </audio>
+      </div>
+    `;
+  } else if (fileType === 'pdf') {
+    previewHtml = `
+      <div class="preview">
+        <h3>📑 Preview PDF</h3>
+        <iframe src="${file.telegramUrl}" style="width: 100%; height: 500px; border-radius: 12px;" frameborder="0"></iframe>
+      </div>
+    `;
   }
   
-  // Kirim halaman HTML web view dengan preview
+  // Tentukan icon berdasarkan tipe file
+  let fileIcon = '📄';
+  if (fileType === 'image') fileIcon = '🖼️';
+  else if (fileType === 'video') fileIcon = '🎬';
+  else if (fileType === 'audio') fileIcon = '🎵';
+  else if (fileType === 'pdf') fileIcon = '📑';
+  else if (fileType === 'text') fileIcon = '📝';
+  
+  // Kirim halaman HTML
   res.send(`
     <!DOCTYPE html>
     <html lang="id">
@@ -160,7 +240,7 @@ app.get('/f/:id', async (req, res) => {
           min-height: 100vh;
           padding: 20px;
         }
-        .container { max-width: 900px; margin: 0 auto; }
+        .container { max-width: 1000px; margin: 0 auto; }
         .card {
           background: rgba(15,23,42,0.8);
           backdrop-filter: blur(10px);
@@ -198,8 +278,7 @@ app.get('/f/:id', async (req, res) => {
           background: #0f172a;
           border-radius: 16px;
           padding: 20px;
-          margin-top: 20px;
-          overflow-x: auto;
+          margin-top: 10px;
         }
         .preview h3 {
           margin-bottom: 15px;
@@ -232,13 +311,17 @@ app.get('/f/:id', async (req, res) => {
           font-size: 0.7rem;
           margin-top: 20px;
         }
+        video, audio, iframe, img {
+          max-width: 100%;
+          border-radius: 12px;
+        }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="card">
-          <div class="file-icon">${file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼️' : (isText ? '📝' : '📄')}</div>
-          <h1>${escapeHtml(file.name)}${isText ? '<span class="badge">Preview Tersedia</span>' : ''}</h1>
+          <div class="file-icon">${fileIcon}</div>
+          <h1>${escapeHtml(file.name)}<span class="badge">${fileType}</span></h1>
           <div class="file-name">${escapeHtml(file.name)}</div>
           <div class="file-meta">
             📦 Ukuran: ${(file.size / 1024).toFixed(2)} KB<br>
@@ -250,24 +333,21 @@ app.get('/f/:id', async (req, res) => {
           </div>
         </div>
         
-        ${isText && fileContent ? `
+        ${previewHtml ? `
+        <div class="card">
+          ${previewHtml}
+        </div>
+        ` : `
         <div class="card">
           <div class="preview">
-            <h3>📄 Preview Isi File</h3>
-            <pre>${escapeHtml(fileContent)}</pre>
+            <h3>⚠️ Preview Tidak Tersedia</h3>
+            <p style="color: #94a3b8;">File jenis ini tidak bisa ditampilkan langsung. Silakan download untuk melihat.</p>
           </div>
         </div>
-        ` : (isText && !fileContent ? `
-        <div class="card">
-          <div class="preview">
-            <h3>⚠️ Gagal Memuat Preview</h3>
-            <p style="color: #94a3b8;">Tidak bisa membaca isi file. Silakan download untuk melihat.</p>
-          </div>
-        </div>
-        ` : '')}
+        `}
         
         <footer>
-          🔗 File tersimpan di Telegram | Link ini bersifat sementara
+          🔗 File tersimpan di Telegram | Preview hanya untuk file yang didukung
         </footer>
       </div>
     </body>
