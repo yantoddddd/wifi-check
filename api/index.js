@@ -78,7 +78,7 @@ async function getImageBase64(telegramUrl) {
 
 // ========== ENDPOINT UPLOAD ==========
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-  console.log('📤 Received upload request');
+  console.log('Received upload request');
   
   try {
     if (!req.file) {
@@ -125,15 +125,15 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Upload error:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ========== ENDPOINT WEB VIEW (PREVIEW SEMUA FILE) ==========
+// ========== ENDPOINT WEB VIEW ==========
 app.get('/f/:id', async (req, res) => {
   const id = req.params.id;
-  console.log(`🔍 Looking for file ID: ${id}`);
+  console.log(`Looking for file ID: ${id}`);
   
   const file = fileStore.get(id);
   
@@ -151,9 +151,9 @@ app.get('/f/:id', async (req, res) => {
       </head>
       <body>
         <div class="card">
-          <h1>❌ File Tidak Ditemukan</h1>
+          <h1>File Tidak Ditemukan</h1>
           <p>ID: <code>${escapeHtml(id)}</code></p>
-          <a href="/">← Kembali</a>
+          <a href="/">Kembali</a>
         </div>
       </body>
       </html>
@@ -163,65 +163,33 @@ app.get('/f/:id', async (req, res) => {
   const fileType = getFileType(file.name);
   
   // Ambil konten untuk preview
-  let previewContent = null;
   let previewHtml = '';
   
   if (fileType === 'text') {
     const content = await getTextContent(file.telegramUrl);
     if (content) {
-      previewHtml = `
-        <div class="preview">
-          <h3>📄 Preview Isi File</h3>
-          <pre>${escapeHtml(content)}</pre>
-        </div>
-      `;
+      previewHtml = `<pre>${escapeHtml(content)}</pre>`;
     }
   } else if (fileType === 'image') {
     const base64 = await getImageBase64(file.telegramUrl);
     if (base64) {
-      previewHtml = `
-        <div class="preview">
-          <h3>🖼️ Preview Gambar</h3>
-          <img src="${base64}" style="max-width: 100%; border-radius: 12px;" alt="preview">
-        </div>
-      `;
+      previewHtml = `<img src="${base64}" alt="preview">`;
     }
   } else if (fileType === 'video') {
-    previewHtml = `
-      <div class="preview">
-        <h3>🎬 Preview Video</h3>
-        <video controls style="max-width: 100%; border-radius: 12px;">
-          <source src="${file.telegramUrl}" type="${file.mimeType || 'video/mp4'}">
-          Browser tidak mendukung tag video.
-        </video>
-      </div>
-    `;
+    previewHtml = `<video controls src="${file.telegramUrl}"></video>`;
   } else if (fileType === 'audio') {
-    previewHtml = `
-      <div class="preview">
-        <h3>🎵 Preview Audio</h3>
-        <audio controls style="width: 100%;">
-          <source src="${file.telegramUrl}" type="${file.mimeType || 'audio/mpeg'}">
-          Browser tidak mendukung tag audio.
-        </audio>
-      </div>
-    `;
+    previewHtml = `<audio controls src="${file.telegramUrl}"></audio>`;
   } else if (fileType === 'pdf') {
-    previewHtml = `
-      <div class="preview">
-        <h3>📑 Preview PDF</h3>
-        <iframe src="${file.telegramUrl}" style="width: 100%; height: 500px; border-radius: 12px;" frameborder="0"></iframe>
-      </div>
-    `;
+    previewHtml = `<iframe src="${file.telegramUrl}"></iframe>`;
   }
   
   // Tentukan icon berdasarkan tipe file
-  let fileIcon = '📄';
-  if (fileType === 'image') fileIcon = '🖼️';
-  else if (fileType === 'video') fileIcon = '🎬';
-  else if (fileType === 'audio') fileIcon = '🎵';
-  else if (fileType === 'pdf') fileIcon = '📑';
-  else if (fileType === 'text') fileIcon = '📝';
+  let fileIcon = 'fa-file';
+  if (fileType === 'image') fileIcon = 'fa-image';
+  else if (fileType === 'video') fileIcon = 'fa-video';
+  else if (fileType === 'audio') fileIcon = 'fa-music';
+  else if (fileType === 'pdf') fileIcon = 'fa-file-pdf';
+  else if (fileType === 'text') fileIcon = 'fa-file-code';
   
   // Kirim halaman HTML
   res.send(`
@@ -231,6 +199,7 @@ app.get('/f/:id', async (req, res) => {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${escapeHtml(file.name)} - FileShare</title>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -240,55 +209,69 @@ app.get('/f/:id', async (req, res) => {
           min-height: 100vh;
           padding: 20px;
         }
-        .container { max-width: 1000px; margin: 0 auto; }
-        .card {
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* Header dengan nama file di kiri, download di kanan */
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 20px;
           background: rgba(15,23,42,0.8);
           backdrop-filter: blur(10px);
-          border-radius: 24px;
-          padding: 30px;
-          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 16px;
           margin-bottom: 20px;
+          border: 1px solid rgba(255,255,255,0.1);
         }
-        h1 { font-size: 1.5rem; margin-bottom: 10px; }
-        .file-icon { font-size: 3rem; margin-bottom: 10px; }
-        .file-name {
-          background: #1e293b;
-          padding: 12px;
-          border-radius: 12px;
-          font-family: monospace;
+        .file-info {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 0.9rem;
+          color: #e2e8f0;
           word-break: break-all;
-          margin: 15px 0;
         }
-        .file-meta { color: #94a3b8; margin-bottom: 20px; font-size: 0.8rem; }
-        .btn {
+        .file-info i {
+          color: #60a5fa;
+          font-size: 1rem;
+        }
+        .download-btn {
           background: #3b82f6;
           border: none;
-          padding: 10px 20px;
-          border-radius: 12px;
+          padding: 8px 16px;
+          border-radius: 10px;
           color: white;
-          font-weight: 600;
+          font-weight: 500;
           cursor: pointer;
           text-decoration: none;
-          display: inline-block;
-          margin: 5px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.8rem;
+          transition: 0.2s;
         }
-        .btn:hover { background: #2563eb; }
-        .btn-secondary { background: #334155; }
-        .preview {
-          background: #0f172a;
-          border-radius: 16px;
-          padding: 20px;
-          margin-top: 10px;
+        .download-btn:hover {
+          background: #2563eb;
         }
-        .preview h3 {
-          margin-bottom: 15px;
-          color: #60a5fa;
-          font-size: 0.9rem;
+        
+        /* Preview di tengah */
+        .preview-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 60vh;
+          background: rgba(0,0,0,0.3);
+          border-radius: 20px;
+          padding: 30px;
+        }
+        .preview-content {
+          max-width: 100%;
+          text-align: center;
         }
         pre {
           background: #020617;
-          padding: 15px;
-          border-radius: 12px;
+          padding: 20px;
+          border-radius: 16px;
           font-family: monospace;
           font-size: 0.75rem;
           overflow-x: auto;
@@ -297,58 +280,50 @@ app.get('/f/:id', async (req, res) => {
           color: #e2e8f0;
           max-height: 500px;
           overflow-y: auto;
+          text-align: left;
+          max-width: 100%;
         }
-        .badge {
-          background: #10b981;
-          padding: 2px 8px;
-          border-radius: 20px;
-          font-size: 0.6rem;
-          margin-left: 10px;
+        img, video, audio {
+          max-width: 100%;
+          max-height: 70vh;
+          border-radius: 12px;
         }
-        footer {
+        iframe {
+          width: 100%;
+          height: 70vh;
+          border-radius: 12px;
+          border: none;
+        }
+        .meta {
           text-align: center;
-          color: #475569;
+          color: #64748b;
           font-size: 0.7rem;
           margin-top: 20px;
-        }
-        video, audio, iframe, img {
-          max-width: 100%;
-          border-radius: 12px;
         }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="card">
-          <div class="file-icon">${fileIcon}</div>
-          <h1>${escapeHtml(file.name)}<span class="badge">${fileType}</span></h1>
-          <div class="file-name">${escapeHtml(file.name)}</div>
-          <div class="file-meta">
-            📦 Ukuran: ${(file.size / 1024).toFixed(2)} KB<br>
-            📅 Diupload: ${new Date(file.uploadedAt).toLocaleString('id-ID')}
+        <div class="header">
+          <div class="file-info">
+            <i class="fas ${fileIcon}"></i>
+            <span>${escapeHtml(file.name)}</span>
+            <span style="font-size:0.7rem; color:#64748b;">${(file.size / 1024).toFixed(2)} KB</span>
           </div>
-          <div>
-            <a href="${file.telegramUrl}" class="btn" download>⬇️ Download File</a>
-            <a href="/" class="btn btn-secondary">🏠 Upload Lagi</a>
+          <a href="${file.telegramUrl}" class="download-btn" download>
+            <i class="fas fa-download"></i> Download
+          </a>
+        </div>
+        
+        <div class="preview-container">
+          <div class="preview-content">
+            ${previewHtml || `<div style="color:#64748b; text-align:center;"><i class="fas fa-eye-slash" style="font-size:2rem; margin-bottom:10px; display:block;"></i> Preview tidak tersedia untuk file ini</div>`}
           </div>
         </div>
         
-        ${previewHtml ? `
-        <div class="card">
-          ${previewHtml}
+        <div class="meta">
+          <i class="far fa-clock"></i> ${new Date(file.uploadedAt).toLocaleString('id-ID')}
         </div>
-        ` : `
-        <div class="card">
-          <div class="preview">
-            <h3>⚠️ Preview Tidak Tersedia</h3>
-            <p style="color: #94a3b8;">File jenis ini tidak bisa ditampilkan langsung. Silakan download untuk melihat.</p>
-          </div>
-        </div>
-        `}
-        
-        <footer>
-          🔗 File tersimpan di Telegram | Preview hanya untuk file yang didukung
-        </footer>
       </div>
     </body>
     </html>
