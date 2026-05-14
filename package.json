@@ -1,9 +1,12 @@
 {
-  "name": "telegram-storage",
+  "name": "nokos-auto-order",
   "version": "1.0.0",
+  "description": "Auto order nomor OTP JasaOTP - Vercel",
+  "main": "api/proxy.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
   "dependencies": {
-    "express": "^4.18.2",
-    "multer": "^1.4.5-lts.1",
-    "cors": "^2.8.5"
+    "axios": "^1.6.0"
   }
 }
