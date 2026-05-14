@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.js",
+      "src": "api/proxy.js",
       "use": "@vercel/node"
     },
     {
@@ -12,23 +12,12 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "api/index.js",
-      "methods": ["GET", "POST", "OPTIONS"]
-    },
-    {
-      "src": "/webhook",
-      "dest": "api/index.js",
-      "methods": ["POST", "OPTIONS"]
-    },
-    {
-      "src": "/f/(.*)",
-      "dest": "api/index.js",
-      "methods": ["GET"]
+      "src": "/api/proxy",
+      "dest": "/api/proxy.js"
     },
     {
       "src": "/(.*)",
-      "dest": "public/index.html"
+      "dest": "/public/$1"
     }
   ]
 }
