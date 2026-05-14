@@ -1,334 +1,577 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileShare - Upload & Share</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: linear-gradient(135deg, #0f172a, #1e1b4b);
-            font-family: system-ui, -apple-system, sans-serif;
-            color: white;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container { max-width: 800px; margin: 0 auto; }
-        .card {
-            background: rgba(15,23,42,0.8);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 24px;
-            border: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 24px;
-        }
-        h1 {
-            font-size: 1.5rem;
-            text-align: center;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        .sub {
-            text-align: center;
-            color: #94a3b8;
-            margin-bottom: 24px;
-            font-size: 0.8rem;
-        }
-        .upload-zone {
-            border: 2px dashed #3b82f6;
-            border-radius: 20px;
-            padding: 40px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .upload-zone:hover {
-            background: rgba(59,130,246,0.1);
-            border-color: #60a5fa;
-        }
-        .upload-zone.drag-over {
-            background: rgba(59,130,246,0.2);
-            border-color: #60a5fa;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            display: inline-block;
-            margin-right: 8px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .result {
-            background: #1e293b;
-            border-radius: 16px;
-            padding: 20px;
-            margin-top: 20px;
-            display: none;
-        }
-        .result.success { border-left: 3px solid #10b981; }
-        .result.error { border-left: 3px solid #ef4444; }
-        .link-box {
-            background: #0f172a;
-            padding: 12px;
-            border-radius: 12px;
-            margin: 15px 0;
-            font-size: 0.75rem;
-            font-family: monospace;
-            word-break: break-all;
-        }
-        button {
-            background: #3b82f6;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 10px;
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            margin: 4px;
-            font-size: 0.8rem;
-        }
-        button:hover { background: #2563eb; }
-        .btn-secondary { background: #334155; }
-        .btn-secondary:hover { background: #475569; }
-        .file-list { margin-top: 16px; max-height: 400px; overflow-y: auto; }
-        .file-item {
-            background: rgba(0,0,0,0.3);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .file-info {
-            flex: 1;
-            overflow: hidden;
-        }
-        .file-name {
-            font-weight: 500;
-            font-size: 0.85rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .file-meta {
-            font-size: 0.65rem;
-            color: #64748b;
-        }
-        .file-link {
-            color: #60a5fa;
-            text-decoration: none;
-            font-size: 0.7rem;
-        }
-        .delete-btn {
-            background: #ef4444;
-            padding: 4px 10px;
-            font-size: 0.7rem;
-        }
-        .delete-btn:hover { background: #dc2626; }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e293b;
-            padding: 8px 16px;
-            border-radius: 40px;
-            font-size: 0.75rem;
-            opacity: 0;
-            transition: 0.2s;
-            pointer-events: none;
-            z-index: 1000;
-        }
-        i { margin-right: 6px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Auto Order Nokos • JasaOTP</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+    }
+    body {
+      background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      margin: 0;
+    }
+    .container {
+      width: 100%;
+      max-width: 550px;
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 2.5rem;
+      padding: 2rem 1.8rem;
+      box-shadow: 0 30px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      transition: all 0.3s ease;
+    }
+    h1 {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 1.9rem;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.3rem;
+      color: white;
+      text-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    h1 span {
+      background: #3b82f6;
+      padding: 0.2rem 0.7rem;
+      border-radius: 3rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: white;
+      letter-spacing: 0.3px;
+      margin-left: 0.25rem;
+    }
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 1.8rem;
+      font-size: 0.95rem;
+      border-left: 4px solid #3b82f6;
+      padding-left: 1rem;
+    }
+    .balance-card {
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 1.5rem;
+      padding: 1rem 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.8rem;
+      backdrop-filter: blur(10px);
+    }
+    .balance-label {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #93c5fd;
+    }
+    .balance-value {
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: white;
+    }
+    .form-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #cbd5e1;
+      margin-left: 0.3rem;
+    }
+    select {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 1.2rem;
+      padding: 0.9rem 1.2rem;
+      font-size: 1rem;
+      color: white;
+      outline: none;
+      transition: all 0.2s;
+      backdrop-filter: blur(5px);
+      cursor: pointer;
+    }
+    select option {
+      background: #1e293b;
+      color: #f1f5f9;
+    }
+    select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.4);
+    }
+    button {
+      background: #3b82f6;
+      border: none;
+      border-radius: 1.5rem;
+      padding: 1rem 1.5rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      box-shadow: 0 10px 20px -8px #1e3a8a;
+      border: 1px solid rgba(255,255,255,0.2);
+      margin-top: 0.4rem;
+      width: 100%;
+    }
+    button:hover {
+      background: #2563eb;
+      transform: scale(1.02);
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+    button:disabled {
+      opacity: 0.6;
+      pointer-events: none;
+      filter: grayscale(0.3);
+    }
+    .result-box {
+      margin-top: 1.8rem;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 1.5rem;
+      padding: 1.2rem;
+      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+    .order-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #facc15;
+      letter-spacing: 1px;
+    }
+    .otp-code {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #4ade80;
+      letter-spacing: 2px;
+      background: rgba(0,0,0,0.4);
+      padding: 0.2rem 1rem;
+      border-radius: 1rem;
+      display: inline-block;
+      margin: 0.3rem 0;
+    }
+    .flex-row {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .small-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: white;
+      transition: 0.2s;
+    }
+    .small-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+    .status-message {
+      color: #f87171;
+      font-weight: 500;
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
 <div class="container">
-    <div class="card">
-        <h1>
-            <i class="fas fa-cloud-upload-alt"></i>
-            FileShare
-        </h1>
-        <div class="sub">Upload file untuk mendapatkan link pendek</div>
-        
-        <div class="upload-zone" id="uploadZone">
-            <i class="fas fa-upload" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-            <div>Klik atau tarik file ke sini</div>
-            <small style="color:#64748b;">Maksimal 50MB · File disimpan di Telegram</small>
-            <input type="file" id="fileInput" style="display:none">
-        </div>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div> Mengupload...
-        </div>
-        
-        <div class="result" id="result">
-            <div id="resultIcon"></div>
-            <div id="resultMessage"></div>
-            <div class="link-box" id="link"></div>
-            <button id="copyBtn"><i class="far fa-copy"></i> Salin Link</button>
-            <button id="resetBtn" class="btn-secondary"><i class="fas fa-upload"></i> Upload Lagi</button>
-        </div>
+  <h1>
+    📡 Nokos Auto
+    <span>OTP</span>
+  </h1>
+  <div class="subtitle">API JasaOTP • order instan via Vercel</div>
+
+  <!-- Saldo -->
+  <div class="balance-card">
+    <span class="balance-label">💰 Saldo</span>
+    <span class="balance-value" id="balanceDisplay">—</span>
+  </div>
+
+  <!-- Form order -->
+  <div class="form-grid">
+    <div class="input-group">
+      <label>🌍 Negara</label>
+      <select id="negaraSelect">
+        <option value="">Memuat negara...</option>
+      </select>
     </div>
-    
-    <div class="card">
-        <h3 style="margin-bottom: 16px; font-size: 1rem;">
-            <i class="fas fa-history"></i> File Tersimpan
-        </h3>
-        <div id="fileList">
-            <div style="text-align:center; color:#64748b;"><i class="fas fa-spinner fa-pulse"></i> Memuat...</div>
-        </div>
+    <div class="input-group">
+      <label>📱 Operator</label>
+      <select id="operatorSelect">
+        <option value="">Pilih negara dulu</option>
+      </select>
     </div>
+    <div class="input-group">
+      <label>📦 Layanan</label>
+      <select id="layananSelect">
+        <option value="">Pilih negara dulu</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="orderBtn">
+    <span>⚡ Beli Nomor Sekarang</span>
+  </button>
+
+  <!-- Area hasil & aksi -->
+  <div class="result-box" id="resultBox">
+    <div style="color:#94a3b8;">🔽 Data order akan muncul di sini</div>
+  </div>
 </div>
-<div id="toast" class="toast"></div>
 
 <script>
-    let currentUrl = '';
-    
-    function showToast(msg, isError = false) {
-        const toast = document.getElementById('toast');
-        toast.textContent = msg;
-        toast.style.background = isError ? '#7f1a1a' : '#1e293b';
-        toast.style.opacity = '1';
-        setTimeout(() => toast.style.opacity = '0', 2500);
+  (function() {
+    // State global
+    let state = {
+      countries: [],
+      operators: [],
+      services: {},
+      selectedCountry: null,
+      selectedOperator: null,
+      selectedService: null,
+      currentOrderId: null,
+      currentNumber: null,
+    };
+
+    // DOM elements
+    const balanceEl = document.getElementById('balanceDisplay');
+    const negaraSelect = document.getElementById('negaraSelect');
+    const operatorSelect = document.getElementById('operatorSelect');
+    const layananSelect = document.getElementById('layananSelect');
+    const orderBtn = document.getElementById('orderBtn');
+    const resultBox = document.getElementById('resultBox');
+
+    // API Helper - panggil backend Vercel
+    async function apiCall(action, params = {}) {
+      const url = new URL('/api/proxy', window.location.origin);
+      url.searchParams.append('action', action);
+      
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          url.searchParams.append(key, value);
+        }
+      });
+
+      try {
+        const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        return json;
+      } catch (error) {
+        console.error('API error:', error);
+        throw error;
+      }
     }
-    
-    async function uploadFile(file) {
-        const formData = new FormData();
-        formData.append('file', file);
+
+    // Update saldo
+    async function refreshBalance() {
+      try {
+        const data = await apiCall('balance');
+        if (data && data.success && data.data) {
+          const saldo = data.data.saldo || 0;
+          balanceEl.textContent = `Rp ${saldo.toLocaleString('id-ID')}`;
+        } else {
+          balanceEl.textContent = 'Gagal';
+        }
+      } catch (e) {
+        balanceEl.textContent = 'Error';
+      }
+    }
+
+    // Load negara
+    async function loadCountries() {
+      try {
+        const data = await apiCall('negara');
+        if (data && data.success && Array.isArray(data.data)) {
+          state.countries = data.data;
+          populateNegaraSelect();
+        } else {
+          negaraSelect.innerHTML = '<option value="">Gagal memuat</option>';
+        }
+      } catch (e) {
+        negaraSelect.innerHTML = '<option value="">Error jaringan</option>';
+      }
+    }
+
+    function populateNegaraSelect() {
+      negaraSelect.innerHTML = '<option value="">-- Pilih Negara --</option>';
+      state.countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country.id_negara;
+        option.textContent = `${country.nama_negara} (ID: ${country.id_negara})`;
+        negaraSelect.appendChild(option);
+      });
+      operatorSelect.innerHTML = '<option value="">Pilih negara dulu</option>';
+      layananSelect.innerHTML = '<option value="">Pilih negara dulu</option>';
+    }
+
+    // Load operator
+    async function loadOperators(countryId) {
+      if (!countryId && countryId !== 0) {
+        operatorSelect.innerHTML = '<option value="">-- Tidak tersedia --</option>';
+        return;
+      }
+      try {
+        const data = await apiCall('operator', { negara: countryId });
+        if (data && data.success && data.data) {
+          const countryData = data.data[countryId] || data.data[String(countryId)];
+          if (Array.isArray(countryData)) {
+            state.operators = countryData;
+            populateOperatorSelect();
+          } else {
+            state.operators = [];
+            operatorSelect.innerHTML = '<option value="">Operator tidak ditemukan</option>';
+          }
+        } else {
+          operatorSelect.innerHTML = '<option value="">Gagal memuat operator</option>';
+        }
+      } catch (e) {
+        operatorSelect.innerHTML = '<option value="">Error operator</option>';
+      }
+    }
+
+    function populateOperatorSelect() {
+      operatorSelect.innerHTML = '<option value="">-- Pilih Operator --</option>';
+      state.operators.forEach(op => {
+        const option = document.createElement('option');
+        option.value = op;
+        option.textContent = op.charAt(0).toUpperCase() + op.slice(1);
+        operatorSelect.appendChild(option);
+      });
+      if (state.operators.length === 0) {
+        operatorSelect.innerHTML = '<option value="">Tidak ada operator</option>';
+      }
+    }
+
+    // Load layanan
+    async function loadServices(countryId) {
+      if (!countryId && countryId !== 0) {
+        layananSelect.innerHTML = '<option value="">-- Tidak tersedia --</option>';
+        return;
+      }
+      try {
+        const data = await apiCall('layanan', { negara: countryId });
+        if (data && data.success === true && data.data) {
+          const servicesObj = data.data[countryId] || data.data[String(countryId)] || {};
+          state.services = servicesObj;
+          populateLayananSelect();
+        } else {
+          state.services = {};
+          layananSelect.innerHTML = '<option value="">Gagal memuat layanan</option>';
+        }
+      } catch (e) {
+        layananSelect.innerHTML = '<option value="">Error layanan</option>';
+      }
+    }
+
+    function populateLayananSelect() {
+      layananSelect.innerHTML = '<option value="">-- Pilih Layanan --</option>';
+      const keys = Object.keys(state.services);
+      if (keys.length === 0) {
+        layananSelect.innerHTML = '<option value="">Layanan kosong</option>';
+        return;
+      }
+      keys.forEach(code => {
+        const service = state.services[code];
+        const option = document.createElement('option');
+        option.value = code;
+        const harga = service.harga || 0;
+        const namaLayanan = service.layanan || code;
+        option.textContent = `${namaLayanan} (${code}) - Rp${harga}`;
+        layananSelect.appendChild(option);
+      });
+    }
+
+    // Update result box
+    function updateResultBox(htmlContent) {
+      resultBox.innerHTML = htmlContent;
+    }
+
+    function resetOrderState() {
+      state.currentOrderId = null;
+      state.currentNumber = null;
+    }
+
+    // Buat pesanan
+    async function createOrder() {
+      const negara = negaraSelect.value;
+      const layanan = layananSelect.value;
+      const operator = operatorSelect.value;
+
+      if (!negara || !layanan || !operator) {
+        alert('Harap pilih negara, operator, dan layanan terlebih dahulu.');
+        return;
+      }
+
+      orderBtn.disabled = true;
+      orderBtn.innerHTML = '<span class="loading-spinner"></span> Memproses...';
+      updateResultBox('<div style="color:#facc15;">⏳ Mengirim pesanan...</div>');
+
+      try {
+        const params = {
+          negara: negara,
+          layanan: layanan,
+          operator: operator,
+        };
+        const data = await apiCall('order', params);
         
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('result').style.display = 'none';
-        
-        try {
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
-            const data = await res.json();
-            
-            if (data.success) {
-                currentUrl = data.url;
-                document.getElementById('resultIcon').innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
-                document.getElementById('resultMessage').innerHTML = 'Upload Berhasil!';
-                document.getElementById('link').innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
-                document.getElementById('result').className = 'result success';
-                document.getElementById('result').style.display = 'block';
-                showToast('Upload berhasil!');
-                loadFiles();
-            } else {
-                document.getElementById('resultIcon').innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>';
-                document.getElementById('resultMessage').innerHTML = 'Upload Gagal: ' + (data.error || 'Unknown error');
-                document.getElementById('result').className = 'result error';
-                document.getElementById('result').style.display = 'block';
-                showToast(data.error || 'Upload gagal', true);
-            }
-        } catch (err) {
-            document.getElementById('resultIcon').innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>';
-            document.getElementById('resultMessage').innerHTML = 'Error: ' + err.message;
-            document.getElementById('result').className = 'result error';
-            document.getElementById('result').style.display = 'block';
-            showToast(err.message, true);
-        } finally {
-            document.getElementById('loading').style.display = 'none';
+        if (data && data.success && data.data) {
+          state.currentOrderId = data.data.order_id;
+          state.currentNumber = data.data.number;
+          const orderHtml = `
+            <div style="font-weight:600; color:#a5f3fc;">✅ Order Berhasil</div>
+            <div style="margin:0.5rem 0;">📞 Nomor: <span class="order-number">${state.currentNumber}</span></div>
+            <div>🆔 Order ID: <strong>${state.currentOrderId}</strong></div>
+            <div class="flex-row">
+              <button class="small-btn" id="checkOtpBtn">🔍 Cek OTP</button>
+              <button class="small-btn" id="cancelOrderBtn">❌ Batalkan</button>
+            </div>
+            <div id="otpResultArea" style="margin-top:0.8rem;"></div>
+          `;
+          updateResultBox(orderHtml);
+          document.getElementById('checkOtpBtn')?.addEventListener('click', checkOtp);
+          document.getElementById('cancelOrderBtn')?.addEventListener('click', cancelOrder);
+        } else {
+          const msg = data?.message || 'Gagal membuat pesanan.';
+          updateResultBox(`<div class="status-message">❌ ${msg}</div>`);
+          resetOrderState();
         }
+      } catch (error) {
+        updateResultBox(`<div class="status-message">❌ Jaringan/Server error</div>`);
+        resetOrderState();
+      } finally {
+        orderBtn.disabled = false;
+        orderBtn.innerHTML = '<span>⚡ Beli Nomor Sekarang</span>';
+        refreshBalance();
+      }
     }
-    
-    function copyLink() {
-        if (currentUrl) {
-            navigator.clipboard.writeText(currentUrl);
-            showToast('Link tersalin!');
+
+    // Cek OTP
+    async function checkOtp() {
+      if (!state.currentOrderId) {
+        alert('Tidak ada order aktif.');
+        return;
+      }
+      const otpArea = document.getElementById('otpResultArea');
+      if (otpArea) otpArea.innerHTML = '<span class="loading-spinner"></span> Mengecek OTP...';
+      
+      try {
+        const data = await apiCall('sms', { id: state.currentOrderId });
+        if (data && data.success && data.data && data.data.otp) {
+          const otpCode = data.data.otp;
+          if (otpArea) otpArea.innerHTML = `<div>🔢 Kode OTP: <span class="otp-code">${otpCode}</span></div>`;
+        } else if (data && data.success === false) {
+          if (otpArea) otpArea.innerHTML = `<div style="color:#fbbf24;">⏳ OTP belum tersedia. (${data.message || 'coba lagi'})</div>`;
+        } else {
+          if (otpArea) otpArea.innerHTML = `<div style="color:#f87171;">Belum ada OTP</div>`;
         }
+      } catch (e) {
+        if (otpArea) otpArea.innerHTML = '<div style="color:#f87171;">Gagal cek OTP</div>';
+      }
     }
-    
-    function resetForm() {
-        document.getElementById('result').style.display = 'none';
-        document.getElementById('fileInput').value = '';
-        currentUrl = '';
-        showToast('Siap upload file baru');
-    }
-    
-    async function loadFiles() {
-        try {
-            const res = await fetch('/api/files');
-            const files = await res.json();
-            const container = document.getElementById('fileList');
-            
-            if (!files.length) {
-                container.innerHTML = '<div style="text-align:center; color:#64748b;"><i class="far fa-folder-open"></i> Belum ada file</div>';
-                return;
-            }
-            
-            container.innerHTML = files.map(file => `
-                <div class="file-item">
-                    <div class="file-info">
-                        <div class="file-name"><i class="far fa-file"></i> ${escapeHtml(file.name)}</div>
-                        <div class="file-meta">${(file.size/1024).toFixed(1)} KB · ${new Date(file.uploadedAt).toLocaleString()}</div>
-                        <a href="/f/${file.id}" class="file-link" target="_blank"><i class="fas fa-external-link-alt"></i> /f/${file.id}</a>
-                    </div>
-                    <button class="delete-btn" onclick="deleteFile('${file.id}')"><i class="fas fa-trash"></i></button>
-                </div>
-            `).join('');
-        } catch (err) {
-            document.getElementById('fileList').innerHTML = '<div style="text-align:center; color:#ef4444;"><i class="fas fa-exclamation-triangle"></i> Gagal memuat file</div>';
+
+    // Batalkan pesanan
+    async function cancelOrder() {
+      if (!state.currentOrderId) {
+        alert('Tidak ada order untuk dibatalkan.');
+        return;
+      }
+      if (!confirm(`Batalkan order ID ${state.currentOrderId}? Saldo akan dikembalikan.`)) return;
+      
+      try {
+        const data = await apiCall('cancel', { id: state.currentOrderId });
+        if (data && data.success) {
+          updateResultBox(`<div style="color:#4ade80;">✅ Pesanan dibatalkan. Dana dikembalikan.</div>`);
+          resetOrderState();
+          refreshBalance();
+        } else {
+          alert('Gagal membatalkan: ' + (data?.message || 'unknown'));
         }
+      } catch (e) {
+        alert('Error pembatalan.');
+      }
     }
-    
-    async function deleteFile(id) {
-        if (confirm('Hapus file ini?')) {
-            const res = await fetch(`/api/file/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                showToast('File dihapus');
-                loadFiles();
-            } else {
-                showToast('Gagal hapus', true);
-            }
-        }
-    }
-    
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-    
-    const zone = document.getElementById('uploadZone');
-    const fileInput = document.getElementById('fileInput');
-    
-    zone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files[0]) uploadFile(e.target.files[0]);
+
+    // Event listeners
+    negaraSelect.addEventListener('change', async function(e) {
+      const countryId = e.target.value;
+      state.selectedCountry = countryId;
+      operatorSelect.innerHTML = '<option value="">Memuat...</option>';
+      layananSelect.innerHTML = '<option value="">Memuat...</option>';
+      
+      if (countryId === '') {
+        operatorSelect.innerHTML = '<option value="">Pilih negara dulu</option>';
+        layananSelect.innerHTML = '<option value="">Pilih negara dulu</option>';
+        return;
+      }
+      
+      await Promise.all([loadOperators(countryId), loadServices(countryId)]);
     });
-    
-    zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        zone.classList.add('drag-over');
+
+    operatorSelect.addEventListener('change', function(e) {
+      state.selectedOperator = e.target.value;
     });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-    zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        zone.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+
+    layananSelect.addEventListener('change', function(e) {
+      state.selectedService = e.target.value;
     });
-    
-    document.getElementById('copyBtn').addEventListener('click', copyLink);
-    document.getElementById('resetBtn').addEventListener('click', resetForm);
-    
-    loadFiles();
+
+    orderBtn.addEventListener('click', createOrder);
+
+    // Inisialisasi
+    async function init() {
+      updateResultBox('<div style="color:#94a3b8;">🔄 Menyiapkan data...</div>');
+      await refreshBalance();
+      await loadCountries();
+      updateResultBox('<div style="color:#94a3b8;">🔽 Pilih negara, operator & layanan lalu klik Beli Nomor</div>');
+    }
+
+    init();
+  })();
 </script>
 </body>
 </html>
